@@ -1,0 +1,21 @@
+*.egg-info/
+.installed.cfg
+*.egg
+*__pycache__*
+*.pyc
+.vscode
+*.log
+build
+dist
+.ipynb_checkpoints
+logs/
+outputs/
+*.pkl
+.DS_Store
+log*
+data/preprocessed/
+# restart/data/
+wandb*/
+
+image-graph_urls/
+__pycache__/
