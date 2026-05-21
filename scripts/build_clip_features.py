@@ -7,6 +7,7 @@ import time
 import urllib.error
 import urllib.request
 from collections import defaultdict
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -76,6 +77,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=1,
         help="Maximum number of URLs to try per entity after deduplication.",
+    )
+    parser.add_argument(
+        "--num-download-workers",
+        type=int,
+        default=16,
+        help="Number of concurrent workers for image downloads.",
     )
     parser.add_argument(
         "--download-timeout",
@@ -246,6 +253,19 @@ def fetch_image(url: str, timeout: float, max_retries: int) -> Optional[Image.Im
     return None
 
 
+def download_and_preprocess(
+    entity_index: int,
+    url: str,
+    preprocess: transforms.Compose,
+    timeout: float,
+    max_retries: int,
+) -> Tuple[int, bool, Optional[torch.Tensor]]:
+    image = fetch_image(url=url, timeout=timeout, max_retries=max_retries)
+    if image is None:
+        return entity_index, False, None
+    return entity_index, True, preprocess(image)
+
+
 def encode_images(
     model: CLIPModel,
     pixel_batches: List[Tuple[int, torch.Tensor]],
@@ -337,48 +357,78 @@ def main() -> None:
     accumulated_features: Dict[int, List[torch.Tensor]] = defaultdict(list)
     num_download_failures = 0
 
-    entity_progress = tqdm(
-        enumerate(entity_to_urls),
-        total=len(entity_to_urls),
-        desc="Fetching images",
+    download_jobs = [
+        (entity_index, url)
+        for entity_index, urls in enumerate(entity_to_urls)
+        for url in urls
+    ]
+    download_progress = tqdm(
+        total=len(download_jobs),
+        desc="Downloading images",
     )
     num_downloaded_images = 0
-    for entity_index, urls in entity_progress:
-        for url in urls:
-            image = fetch_image(
-                url=url,
-                timeout=args.download_timeout,
-                max_retries=args.max_retries,
-            )
-            if image is None:
-                num_download_failures += 1
-                continue
-            pending_pixels.append((entity_index, preprocess(image)))
-            num_downloaded_images += 1
-            entity_progress.set_postfix(
-                downloaded=num_downloaded_images,
-                queued=len(pending_pixels),
-                failed=num_download_failures,
+    max_pending_jobs = max(args.num_download_workers * 4, 1)
+    next_job_index = 0
+
+    with ThreadPoolExecutor(max_workers=args.num_download_workers) as executor:
+        in_flight = set()
+
+        def submit_one(job_index: int):
+            entity_index, url = download_jobs[job_index]
+            return executor.submit(
+                download_and_preprocess,
+                entity_index,
+                url,
+                preprocess,
+                args.download_timeout,
+                args.max_retries,
             )
 
-            if len(pending_pixels) >= args.batch_size:
-                encoded = encode_images(
-                    model=model,
-                    pixel_batches=pending_pixels,
-                    batch_size=args.batch_size,
-                    device=device,
-                    fp16=use_fp16,
-                    progress_desc="Encoding images",
-                )
-                for idx, feat in encoded:
-                    accumulated_features[idx].append(feat)
-                entity_progress.set_postfix(
+        while next_job_index < len(download_jobs) and len(in_flight) < max_pending_jobs:
+            in_flight.add(submit_one(next_job_index))
+            next_job_index += 1
+
+        while in_flight:
+            done, in_flight = wait(in_flight, return_when=FIRST_COMPLETED)
+            for future in done:
+                entity_index, ok, pixel_tensor = future.result()
+                download_progress.update(1)
+                if ok and pixel_tensor is not None:
+                    pending_pixels.append((entity_index, pixel_tensor))
+                    num_downloaded_images += 1
+                else:
+                    num_download_failures += 1
+
+                download_progress.set_postfix(
                     downloaded=num_downloaded_images,
-                    queued=0,
-                    encoded=len(accumulated_features),
+                    queued=len(pending_pixels),
                     failed=num_download_failures,
                 )
-                pending_pixels.clear()
+
+                if len(pending_pixels) >= args.batch_size:
+                    encoded = encode_images(
+                        model=model,
+                        pixel_batches=pending_pixels,
+                        batch_size=args.batch_size,
+                        device=device,
+                        fp16=use_fp16,
+                        progress_desc="Encoding images",
+                    )
+                    for idx, feat in encoded:
+                        accumulated_features[idx].append(feat)
+                    pending_pixels.clear()
+                    download_progress.set_postfix(
+                        downloaded=num_downloaded_images,
+                        queued=0,
+                        encoded=len(accumulated_features),
+                        failed=num_download_failures,
+                    )
+
+            while next_job_index < len(download_jobs) and len(in_flight) < max_pending_jobs:
+                in_flight.add(submit_one(next_job_index))
+                next_job_index += 1
+
+    download_progress.close()
 
     if pending_pixels:
         encoded = encode_images(
