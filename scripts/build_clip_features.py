@@ -13,6 +13,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import torch
 import torch.nn.functional as F
 from PIL import Image
+from tqdm import tqdm
 from torchvision import transforms
 
 
@@ -251,10 +252,20 @@ def encode_images(
     batch_size: int,
     device: str,
     fp16: bool,
+    progress_desc: Optional[str] = None,
 ) -> List[Tuple[int, torch.Tensor]]:
     features: List[Tuple[int, torch.Tensor]] = []
 
-    for start in range(0, len(pixel_batches), batch_size):
+    starts = range(0, len(pixel_batches), batch_size)
+    if progress_desc is not None:
+        starts = tqdm(
+            starts,
+            total=(len(pixel_batches) + batch_size - 1) // batch_size,
+            desc=progress_desc,
+            leave=False,
+        )
+
+    for start in starts:
         chunk = pixel_batches[start : start + batch_size]
         entity_indices = [item[0] for item in chunk]
         pixel_values = torch.stack([item[1] for item in chunk], dim=0).to(device)
@@ -326,7 +337,13 @@ def main() -> None:
     accumulated_features: Dict[int, List[torch.Tensor]] = defaultdict(list)
     num_download_failures = 0
 
-    for entity_index, urls in enumerate(entity_to_urls):
+    entity_progress = tqdm(
+        enumerate(entity_to_urls),
+        total=len(entity_to_urls),
+        desc="Fetching images",
+    )
+    num_downloaded_images = 0
+    for entity_index, urls in entity_progress:
         for url in urls:
             image = fetch_image(
                 url=url,
@@ -337,6 +354,12 @@ def main() -> None:
                 num_download_failures += 1
                 continue
             pending_pixels.append((entity_index, preprocess(image)))
+            num_downloaded_images += 1
+            entity_progress.set_postfix(
+                downloaded=num_downloaded_images,
+                queued=len(pending_pixels),
+                failed=num_download_failures,
+            )
 
             if len(pending_pixels) >= args.batch_size:
                 encoded = encode_images(
@@ -345,9 +368,16 @@ def main() -> None:
                     batch_size=args.batch_size,
                     device=device,
                     fp16=use_fp16,
+                    progress_desc="Encoding images",
                 )
                 for idx, feat in encoded:
                     accumulated_features[idx].append(feat)
+                entity_progress.set_postfix(
+                    downloaded=num_downloaded_images,
+                    queued=0,
+                    encoded=len(accumulated_features),
+                    failed=num_download_failures,
+                )
                 pending_pixels.clear()
 
     if pending_pixels:
@@ -357,6 +387,7 @@ def main() -> None:
             batch_size=args.batch_size,
             device=device,
             fp16=use_fp16,
+            progress_desc="Encoding final batch",
         )
         for idx, feat in encoded:
             accumulated_features[idx].append(feat)
