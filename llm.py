@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from contextlib import nullcontext
 from typing import List, Optional, Tuple, Union, OrderedDict
 import torch
 from torch import nn
@@ -26,6 +27,7 @@ class MKGL(LlamaForCausalLM):
     def __init__(self, config):
         super().__init__(config)
         self.diffusion = None
+        self.diffusion_mode = "joint"
 
     def init_kg_specs(self, kgl2token, orig_vocab_size, cfg, image_features=None, image_feature_mask=None):
         self.kgl2token = kgl2token
@@ -51,9 +53,10 @@ class MKGL(LlamaForCausalLM):
 
         # self._init_kg_score(len(kgl_vocab), r)
 
-    def init_diffusion(self, num_entities, hidden_dim, num_steps=40, num_blocks=1):
+    def init_diffusion(self, num_entities, hidden_dim, num_steps=40, num_blocks=1, mode="joint"):
         from diffusion import KGDiffusion
 
+        self.diffusion_mode = mode
         condition_dim = self.config.hidden_size
         self.diffusion = KGDiffusion(
             num_entities=num_entities,
@@ -62,6 +65,10 @@ class MKGL(LlamaForCausalLM):
             num_steps=num_steps,
             num_blocks=num_blocks,
         ).to(self.lm_head.weight.device)
+
+    @property
+    def diffusion_train_only(self):
+        return self.diffusion is not None and self.diffusion_mode == "denoiser"
 
     def _diffusion_candidate_ids(self, h_id, t_id):
         is_tail_prediction = (h_id == h_id[:, [0]]).all(dim=-1, keepdim=True)
@@ -124,54 +131,59 @@ class MKGL(LlamaForCausalLM):
     ) -> Union[Tuple, SequenceClassifierOutputWithPast]:
 
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        
-        batch_size = h_kgl_tokenid.shape[0]
-        device = self.lm_head.weight.device
 
-        mask = input_ids < self.orig_vocab_size
-        token_embs = self.get_input_embeddings()(input_ids[mask])
-        kgl_token_embs = self.context_retriever(input_ids[~mask], graph, all_index, all_kgl_index)
+        no_grad_baseline = self.training and self.diffusion_train_only
+        grad_context = torch.no_grad() if no_grad_baseline else nullcontext()
 
-        rel_token_embs = self.context_retriever(r_kgl_tokenid, graph, all_index, all_kgl_index)
+        with grad_context:
+            batch_size = h_kgl_tokenid.shape[0]
+            device = self.lm_head.weight.device
 
-        embed_dtype = self.get_input_embeddings().weight.dtype
-        input_embs = torch.zeros(
-            *input_ids.shape, self.config.hidden_size, dtype=embed_dtype).to(device)
-        input_embs[mask] = token_embs.type(input_embs.dtype)
-        input_embs[~mask] = kgl_token_embs.type(input_embs.dtype)
+            mask = input_ids < self.orig_vocab_size
+            token_embs = self.get_input_embeddings()(input_ids[mask])
+            kgl_token_embs = self.context_retriever(input_ids[~mask], graph, all_index, all_kgl_index)
 
-        transformer_outputs = self.model(
-            attention_mask=attention_mask,
-            position_ids=position_ids,
-            past_key_values=past_key_values,
-            inputs_embeds=input_embs,
-            use_cache=use_cache,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
-        )
+            rel_token_embs = self.context_retriever(r_kgl_tokenid, graph, all_index, all_kgl_index)
 
-        # batch_size, seq_len, hidden_state
-        hidden_states = transformer_outputs[0]
+            embed_dtype = self.get_input_embeddings().weight.dtype
+            input_embs = torch.zeros(
+                *input_ids.shape, self.config.hidden_size, dtype=embed_dtype).to(device)
+            input_embs[mask] = token_embs.type(input_embs.dtype)
+            input_embs[~mask] = kgl_token_embs.type(input_embs.dtype)
 
-        # select the last output of llm, batch_size x hidden_size
-        hr_hidden_states = hidden_states[torch.arange(
-            batch_size, device=hidden_states.device), input_length-1]
+            transformer_outputs = self.model(
+                attention_mask=attention_mask,
+                position_ids=position_ids,
+                past_key_values=past_key_values,
+                inputs_embeds=input_embs,
+                use_cache=use_cache,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+                return_dict=return_dict,
+            )
 
-        rel_hidden_states = hidden_states[torch.arange(
-            batch_size, device=hidden_states.device), input_length-2]
+            # batch_size, seq_len, hidden_state
+            hidden_states = transformer_outputs[0]
 
+            # select the last output of llm, batch_size x hidden_size
+            hr_hidden_states = hidden_states[torch.arange(
+                batch_size, device=hidden_states.device), input_length-1]
 
-        pred = self.score_retriever(h_id, r_id, t_id, hr_hidden_states, rel_token_embs, graph, all_index, all_kgl_index)
+            rel_hidden_states = hidden_states[torch.arange(
+                batch_size, device=hidden_states.device), input_length-2]
+
+            pred = self.score_retriever(h_id, r_id, t_id, hr_hidden_states, rel_token_embs, graph, all_index, all_kgl_index)
+
+            if self.diffusion is not None:
+                x_c = self.context_retriever(h_kgl_tokenid, graph, all_index, all_kgl_index)
 
         if self.diffusion is None:
             return pred
 
-        x_c = self.context_retriever(h_kgl_tokenid, graph, all_index, all_kgl_index)
         if self.training:
             candidate_ids = self._diffusion_candidate_ids(h_id, t_id)
             x_0 = self._scores_to_diffusion_space(pred, candidate_ids)
-            loss_G = self.diffusion.compute_loss_G(x_0, x_c)
+            loss_G = self.diffusion.compute_loss_G(x_0.detach(), x_c.detach())
             return pred, loss_G
 
         x_refined = self.diffusion.reverse_sample(x_c, device=pred.device)
@@ -217,6 +229,14 @@ class KGL4KGC(nn.Module):
     def device(self):
         return self.llmodel.lm_head.weight.device
 
+    @property
+    def diffusion_train_only(self):
+        if getattr(self.llmodel, "diffusion_train_only", False):
+            return True
+        base_model = getattr(self.llmodel, "base_model", None)
+        inner_model = getattr(base_model, "model", None)
+        return bool(getattr(inner_model, "diffusion_train_only", False))
+
     
     def loss(self, pred, target, all_loss=None, loss_G=None):
         metric = {}
@@ -253,6 +273,16 @@ class KGL4KGC(nn.Module):
         if self.training:
             all_loss = torch.tensor(0, dtype=torch.float, device=device)
             pred, loss_G = self.predict(batch, all_loss, metric)
+
+            if self.diffusion_train_only:
+                if loss_G is None:
+                    raise RuntimeError("diffusion.mode='denoiser' requires diffusion to be initialized.")
+                metric = {
+                    "loss": loss_G,
+                    "loss_D": 0.0,
+                    "loss_G": loss_G.item(),
+                }
+                return loss_G, metric
             
             target = torch.zeros_like(pred)
             target[:, 0] = 1

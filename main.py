@@ -98,6 +98,14 @@ def build_image_feature_bank(vocab_df, image_cfg):
     return kgl_image_features, kgl_image_mask
 
 
+def freeze_for_denoiser_training(model):
+    for name, parameter in model.named_parameters():
+        parameter.requires_grad = "diffusion" in name
+
+    if hasattr(model, "diffusion") and model.diffusion is not None:
+        model.diffusion.train()
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='data preprocessing')
     parser.add_argument("--config", "-c", type=str,
@@ -159,7 +167,7 @@ if __name__ == "__main__":
     ) 
 
     diffusion_cfg = getattr(cfg, "diffusion", easydict.EasyDict())
-    if getattr(diffusion_cfg, "enabled", True):
+    if getattr(diffusion_cfg, "enabled", False):
         if hasattr(dataset.kgdata, "inductive_vocab"):
             num_entities = max(
                 len(dataset.kgdata.transductive_vocab),
@@ -173,7 +181,11 @@ if __name__ == "__main__":
             hidden_dim=int(getattr(diffusion_cfg, "hidden_dim", 2048)),
             num_steps=int(getattr(diffusion_cfg, "num_steps", 40)),
             num_blocks=int(getattr(diffusion_cfg, "num_blocks", 1)),
+            mode=str(getattr(diffusion_cfg, "mode", "joint")),
         )
+
+        if getattr(diffusion_cfg, "mode", "joint") == "denoiser":
+            freeze_for_denoiser_training(model)
     
     if comm.get_rank() == 0:
         print(model.print_trainable_parameters())

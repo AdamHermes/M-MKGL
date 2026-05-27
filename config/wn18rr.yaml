@@ -61,6 +61,13 @@ mkgl4kgc:
   strict_negative: yes
   adversarial_temperature: 0.5
 
+diffusion:
+  enabled: no
+  mode: denoiser  # stage 2 only; use enabled: no for stage 1 baseline training
+  hidden_dim: 512
+  num_steps: 30
+  num_blocks: 1
+
 context_retriever:
   llm_hidden_dim: &llm_hidden_dim 4096
   r: *r
