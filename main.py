@@ -157,6 +157,23 @@ if __name__ == "__main__":
         image_features=kgl_image_features,
         image_feature_mask=kgl_image_mask,
     ) 
+
+    diffusion_cfg = getattr(cfg, "diffusion", easydict.EasyDict())
+    if getattr(diffusion_cfg, "enabled", True):
+        if hasattr(dataset.kgdata, "inductive_vocab"):
+            num_entities = max(
+                len(dataset.kgdata.transductive_vocab),
+                len(dataset.kgdata.inductive_vocab),
+            )
+        else:
+            num_entities = int(dataset.kgdata.num_entity)
+
+        model.init_diffusion(
+            num_entities=num_entities,
+            hidden_dim=int(getattr(diffusion_cfg, "hidden_dim", 2048)),
+            num_steps=int(getattr(diffusion_cfg, "num_steps", 40)),
+            num_blocks=int(getattr(diffusion_cfg, "num_blocks", 1)),
+        )
     
     if comm.get_rank() == 0:
         print(model.print_trainable_parameters())

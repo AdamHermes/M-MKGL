@@ -25,6 +25,7 @@ class MKGL(LlamaForCausalLM):
 
     def __init__(self, config):
         super().__init__(config)
+        self.diffusion = None
 
     def init_kg_specs(self, kgl2token, orig_vocab_size, cfg, image_features=None, image_feature_mask=None):
         self.kgl2token = kgl2token
@@ -49,6 +50,36 @@ class MKGL(LlamaForCausalLM):
         ).to(device)
 
         # self._init_kg_score(len(kgl_vocab), r)
+
+    def init_diffusion(self, num_entities, hidden_dim, num_steps=40, num_blocks=1):
+        from diffusion import KGDiffusion
+
+        condition_dim = self.config.hidden_size
+        self.diffusion = KGDiffusion(
+            num_entities=num_entities,
+            condition_dim=condition_dim,
+            hidden_dim=hidden_dim,
+            num_steps=num_steps,
+            num_blocks=num_blocks,
+        ).to(self.lm_head.weight.device)
+
+    def _diffusion_candidate_ids(self, h_id, t_id):
+        is_tail_prediction = (h_id == h_id[:, [0]]).all(dim=-1, keepdim=True)
+        return torch.where(is_tail_prediction, t_id, h_id)
+
+    def _scores_to_diffusion_space(self, pred, candidate_ids):
+        if pred.shape[-1] == self.diffusion.num_entities:
+            return pred
+
+        if candidate_ids.max() >= self.diffusion.num_entities:
+            raise ValueError(
+                "Diffusion has %d entities, but candidate id %d was produced."
+                % (self.diffusion.num_entities, int(candidate_ids.max().item()))
+            )
+
+        x_0 = pred.new_zeros(pred.shape[0], self.diffusion.num_entities)
+        x_0.scatter_(1, candidate_ids.to(pred.device), pred)
+        return x_0
 
     def _init_kg_score(self, num_kg_tokens, ent_inter_emb_dim=64):
         device = self.lm_head.weight.device
@@ -132,7 +163,20 @@ class MKGL(LlamaForCausalLM):
 
 
         pred = self.score_retriever(h_id, r_id, t_id, hr_hidden_states, rel_token_embs, graph, all_index, all_kgl_index)
-        return pred
+
+        if self.diffusion is None:
+            return pred
+
+        x_c = self.context_retriever(h_kgl_tokenid, graph, all_index, all_kgl_index)
+        if self.training:
+            candidate_ids = self._diffusion_candidate_ids(h_id, t_id)
+            x_0 = self._scores_to_diffusion_space(pred, candidate_ids)
+            loss_G = self.diffusion.compute_loss_G(x_0, x_c)
+            return pred, loss_G
+
+        x_refined = self.diffusion.reverse_sample(x_c, device=pred.device)
+        final_score = pred + x_refined[:, :pred.shape[-1]].to(dtype=pred.dtype)
+        return final_score
     
 
     def get_input_kg_embeddings(self, kgl_token_ids):
@@ -174,10 +218,8 @@ class KGL4KGC(nn.Module):
         return self.llmodel.lm_head.weight.device
 
     
-    def loss(self, pred, target, all_loss=None):
+    def loss(self, pred, target, all_loss=None, loss_G=None):
         metric = {}
-        target = torch.zeros_like(pred)
-        target[:, 0] = 1
         loss = F.binary_cross_entropy_with_logits(
             pred, target, reduction="none")
 
@@ -189,33 +231,39 @@ class KGL4KGC(nn.Module):
         else:
             neg_weight[:, 1:] = 1 / self.num_negative
         loss = (loss * neg_weight).sum(dim=-1) / neg_weight.sum(dim=-1)
-        loss = loss.mean()
+        loss_D = loss.mean()
+        total_loss = loss_D
 
         
         if all_loss is not None:
-            loss = loss + all_loss
+            total_loss = total_loss + all_loss
+
+        if loss_G is not None:
+            total_loss = total_loss + loss_G
             
-        metric['loss'] = loss
+        metric['loss'] = total_loss
+        metric['loss_D'] = loss_D.item()
+        metric['loss_G'] = loss_G.item() if loss_G is not None else 0.0
         
-        return loss, metric
+        return total_loss, metric
     
     def forward(self, batch, all_loss=None, metric=None, label=None):
         device = batch.h_id.device
         
         if self.training:
             all_loss = torch.tensor(0, dtype=torch.float, device=device)
-            pred = self.predict(batch, all_loss, metric)
+            pred, loss_G = self.predict(batch, all_loss, metric)
             
             target = torch.zeros_like(pred)
             target[:, 0] = 1
             
-            return self.loss(pred, target)
+            return self.loss(pred, target, all_loss=all_loss, loss_G=loss_G)
         
         else:
             with torch.no_grad():
                 pred, (mask, target) = self.predict_and_target(batch)
                 label = torch.zeros_like(pred)
-                label[:, target] = 1
+                label[torch.arange(len(target), device=pred.device), target] = 1
                 loss, _ = self.loss(pred, label)
                 pos_pred = pred.gather(-1, target.unsqueeze(-1))
                 # filter rank
@@ -280,6 +328,10 @@ class KGL4KGC(nn.Module):
                             attention_mask,
                             input_length,
                             )
+        if self.training:
+            if isinstance(pred, tuple):
+                return pred
+            return pred, None
         return pred
     
     def target(self, batch):
