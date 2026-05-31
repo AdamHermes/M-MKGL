@@ -39,20 +39,65 @@ def checkpoint_cfg_value(cfg, key, default=None):
 def selected_component_state_dict(model, include_diffusion=False):
     state_dict = model.state_dict()
     selected = {}
-    selected_names = (
-        "lora_",
-        "context_retriever",
-        "score_retriever",
-    )
 
     for name, value in state_dict.items():
-        should_save = any(part in name for part in selected_names)
+        should_save = is_component_checkpoint_key(name)
         if include_diffusion and "diffusion" in name:
             should_save = True
         if should_save:
             selected[name] = value.detach().cpu()
 
     return selected
+
+
+def is_component_checkpoint_key(name):
+    selected_names = (
+        "lora_",
+        "context_retriever",
+        "score_retriever",
+    )
+    return any(part in name for part in selected_names)
+
+
+def resolve_checkpoint_path(path):
+    if os.path.isdir(path):
+        candidate_names = (
+            "pytorch_model.bin",
+            "adapter_model.bin",
+        )
+        for name in candidate_names:
+            candidate = os.path.join(path, name)
+            if os.path.exists(candidate):
+                return candidate
+        raise FileNotFoundError(
+            "Checkpoint directory %s does not contain pytorch_model.bin, "
+            "or adapter_model.bin." % path
+        )
+    return path
+
+
+def normalize_checkpoint_state_dict(state_dict):
+    normalized = {}
+    prefixes = (
+        "module.",
+        "model.",
+        "llmodel.",
+    )
+
+    for name, value in state_dict.items():
+        normalized_name = name
+        stripped = True
+        while stripped:
+            stripped = False
+            for prefix in prefixes:
+                if normalized_name.startswith(prefix):
+                    normalized_name = normalized_name[len(prefix):]
+                    stripped = True
+
+        if is_component_checkpoint_key(normalized_name) or "diffusion" in normalized_name:
+            normalized[normalized_name] = value
+
+    return normalized
 
 
 def save_component_checkpoint(model, path, cfg, config_name, include_diffusion=False):
@@ -85,8 +130,13 @@ def load_component_checkpoint(model, path, required=True):
             print("Checkpoint not found, skipping load: %s" % path)
         return
 
+    path = resolve_checkpoint_path(path)
     payload = torch.load(path, map_location="cpu")
-    state_dict = payload.get("state_dict", payload)
+    state_dict = payload.get(
+        "state_dict",
+        payload.get("model_state_dict", payload.get("model", payload)),
+    )
+    state_dict = normalize_checkpoint_state_dict(state_dict)
     incompatible = model.load_state_dict(state_dict, strict=False)
 
     if comm.get_rank() == 0:
@@ -100,6 +150,33 @@ def load_component_checkpoint(model, path, required=True):
         })
         if unexpected:
             print("Unexpected checkpoint keys: %s" % unexpected[:10])
+
+
+def print_trainable_parameter_summary(model, max_names=20):
+    if comm.get_rank() != 0:
+        return
+
+    trainable = []
+    frozen = 0
+    trainable_count = 0
+    for name, parameter in model.named_parameters():
+        count = parameter.numel()
+        if parameter.requires_grad:
+            trainable_count += count
+            trainable.append((name, count))
+        else:
+            frozen += count
+
+    print({
+        "trainable_parameters": trainable_count,
+        "frozen_parameters": frozen,
+        "num_trainable_tensors": len(trainable),
+    })
+    print("Trainable parameter names:")
+    for name, count in trainable[:max_names]:
+        print("  %s (%d)" % (name, count))
+    if len(trainable) > max_names:
+        print("  ... %d more" % (len(trainable) - max_names))
 
 
 def build_image_feature_bank(vocab_df, image_cfg):
@@ -279,6 +356,9 @@ if __name__ == "__main__":
     )
 
     if diffusion_enabled and diffusion_mode == "denoiser":
+        if comm.get_rank() == 0:
+            print("Stage 2 diffusion denoiser training enabled.")
+            print("Loading frozen MKGL checkpoint from %s" % mkgl_checkpoint_path)
         load_component_checkpoint(model, mkgl_checkpoint_path, required=True)
 
     if diffusion_enabled:
@@ -300,9 +380,12 @@ if __name__ == "__main__":
 
         if diffusion_mode == "denoiser":
             freeze_for_denoiser_training(model)
+            if comm.get_rank() == 0:
+                print("Frozen MKGL/LoRA/retriever parameters; only diffusion parameters remain trainable.")
     
     if comm.get_rank() == 0:
         print(model.print_trainable_parameters())
+        print_trainable_parameter_summary(model)
         print(model)
 
     
@@ -370,4 +453,3 @@ if __name__ == "__main__":
             args.config_name,
             include_diffusion=False,
         )
-
