@@ -19,6 +19,89 @@ from collector import *
 from preprocess import *
 
 
+def ensure_parent_dir(path):
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+
+
+def default_checkpoint_path(output_dir, name):
+    return os.path.join(output_dir, "%s.pt" % name)
+
+
+def checkpoint_cfg_value(cfg, key, default=None):
+    checkpoint_cfg = getattr(cfg, "checkpoint", None)
+    if checkpoint_cfg is None:
+        return default
+    return getattr(checkpoint_cfg, key, default)
+
+
+def selected_component_state_dict(model, include_diffusion=False):
+    state_dict = model.state_dict()
+    selected = {}
+    selected_names = (
+        "lora_",
+        "context_retriever",
+        "score_retriever",
+    )
+
+    for name, value in state_dict.items():
+        should_save = any(part in name for part in selected_names)
+        if include_diffusion and "diffusion" in name:
+            should_save = True
+        if should_save:
+            selected[name] = value.detach().cpu()
+
+    return selected
+
+
+def save_component_checkpoint(model, path, cfg, config_name, include_diffusion=False):
+    if comm.get_rank() != 0:
+        return
+
+    ensure_parent_dir(path)
+    payload = {
+        "format": "mkgl_component_checkpoint_v1",
+        "config_name": config_name,
+        "include_diffusion": include_diffusion,
+        "state_dict": selected_component_state_dict(
+            model, include_diffusion=include_diffusion),
+        "kgl_token_length": int(cfg.kgl_token_length),
+    }
+    torch.save(payload, path)
+    print("Saved checkpoint to %s" % path)
+
+
+def load_component_checkpoint(model, path, required=True):
+    if not path:
+        if required:
+            raise ValueError("A checkpoint path is required for this training stage.")
+        return
+
+    if not os.path.exists(path):
+        if required:
+            raise FileNotFoundError("Checkpoint not found: %s" % path)
+        if comm.get_rank() == 0:
+            print("Checkpoint not found, skipping load: %s" % path)
+        return
+
+    payload = torch.load(path, map_location="cpu")
+    state_dict = payload.get("state_dict", payload)
+    incompatible = model.load_state_dict(state_dict, strict=False)
+
+    if comm.get_rank() == 0:
+        missing = list(incompatible.missing_keys)
+        unexpected = list(incompatible.unexpected_keys)
+        print("Loaded checkpoint from %s" % path)
+        print({
+            "loaded_tensors": len(state_dict),
+            "missing_keys": len(missing),
+            "unexpected_keys": len(unexpected),
+        })
+        if unexpected:
+            print("Unexpected checkpoint keys: %s" % unexpected[:10])
+
+
 def build_image_feature_bank(vocab_df, image_cfg):
     if image_cfg is None or not getattr(image_cfg, "path", None):
         return None, None
@@ -114,6 +197,12 @@ if __name__ == "__main__":
                         default='')
     parser.add_argument("--seed", "-s", type=str,
                         default=42)
+    parser.add_argument("--mkgl-checkpoint", type=str, default=None,
+                        help="Path to a trained MKGL component checkpoint for diffusion-stage training.")
+    parser.add_argument("--save-mkgl-checkpoint", type=str, default=None,
+                        help="Path where the trained MKGL component checkpoint will be saved.")
+    parser.add_argument("--save-diffusion-checkpoint", type=str, default=None,
+                        help="Path where the diffusion-stage component checkpoint will be saved.")
     args = parser.parse_args()
     
     with open(args.config, "r") as f:
@@ -167,7 +256,32 @@ if __name__ == "__main__":
     ) 
 
     diffusion_cfg = getattr(cfg, "diffusion", easydict.EasyDict())
-    if getattr(diffusion_cfg, "enabled", False):
+    diffusion_enabled = getattr(diffusion_cfg, "enabled", False)
+    diffusion_mode = str(getattr(diffusion_cfg, "mode", "joint"))
+    default_mkgl_checkpoint = default_checkpoint_path(
+        cfg.trainer.output_dir, "mkgl_checkpoint")
+    default_diffusion_checkpoint = default_checkpoint_path(
+        cfg.trainer.output_dir, "diffusion_checkpoint")
+    mkgl_checkpoint_path = (
+        args.mkgl_checkpoint
+        or checkpoint_cfg_value(cfg, "mkgl_path", None)
+        or default_mkgl_checkpoint
+    )
+    save_mkgl_checkpoint_path = (
+        args.save_mkgl_checkpoint
+        or checkpoint_cfg_value(cfg, "save_mkgl_path", None)
+        or default_mkgl_checkpoint
+    )
+    save_diffusion_checkpoint_path = (
+        args.save_diffusion_checkpoint
+        or checkpoint_cfg_value(cfg, "save_diffusion_path", None)
+        or default_diffusion_checkpoint
+    )
+
+    if diffusion_enabled and diffusion_mode == "denoiser":
+        load_component_checkpoint(model, mkgl_checkpoint_path, required=True)
+
+    if diffusion_enabled:
         if hasattr(dataset.kgdata, "inductive_vocab"):
             num_entities = max(
                 len(dataset.kgdata.transductive_vocab),
@@ -181,10 +295,10 @@ if __name__ == "__main__":
             hidden_dim=int(getattr(diffusion_cfg, "hidden_dim", 2048)),
             num_steps=int(getattr(diffusion_cfg, "num_steps", 40)),
             num_blocks=int(getattr(diffusion_cfg, "num_blocks", 1)),
-            mode=str(getattr(diffusion_cfg, "mode", "joint")),
+            mode=diffusion_mode,
         )
 
-        if getattr(diffusion_cfg, "mode", "joint") == "denoiser":
+        if diffusion_mode == "denoiser":
             freeze_for_denoiser_training(model)
     
     if comm.get_rank() == 0:
@@ -236,6 +350,24 @@ if __name__ == "__main__":
         data_collator=data_loader,
         compute_metrics=compute_metrics
     )
-    trainer.evaluate()
+    if not (diffusion_enabled and diffusion_mode == "denoiser"):
+        trainer.evaluate()
     trainer.train()
+
+    if diffusion_enabled:
+        save_component_checkpoint(
+            model,
+            save_diffusion_checkpoint_path,
+            cfg,
+            args.config_name,
+            include_diffusion=True,
+        )
+    else:
+        save_component_checkpoint(
+            model,
+            save_mkgl_checkpoint_path,
+            cfg,
+            args.config_name,
+            include_diffusion=False,
+        )
 

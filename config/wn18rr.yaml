@@ -68,6 +68,13 @@ diffusion:
   num_steps: 30
   num_blocks: 1
 
+checkpoint:
+  # Defaults are outputs/wn18rr/mkgl_checkpoint.pt and
+  # outputs/wn18rr/diffusion_checkpoint.pt when these are omitted.
+  mkgl_path:
+  save_mkgl_path:
+  save_diffusion_path:
+
 context_retriever:
   llm_hidden_dim: &llm_hidden_dim 4096
   r: *r

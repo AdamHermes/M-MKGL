@@ -80,6 +80,28 @@ Please kindly use the provide scripts to run the model:
 sh scripts/fb15k237.sh
 ```
 
+### Two-stage MKGL + diffusion training
+
+Stage 1 trains MKGL with LoRA and the KG score retriever. When
+`diffusion.enabled: no`, `main.py` now saves the trained LoRA, context
+retriever, and score retriever weights to:
+
+```
+outputs/<config_name>/mkgl_checkpoint.pt
+```
+
+Stage 2 trains only the diffusion denoiser. Set `diffusion.enabled: yes` and
+`diffusion.mode: denoiser` in the same config, then run the same command again.
+The MKGL checkpoint is loaded as a frozen inference conditioner, and the
+diffusion checkpoint is saved to:
+
+```
+outputs/<config_name>/diffusion_checkpoint.pt
+```
+
+You can override paths with `--mkgl-checkpoint`, `--save-mkgl-checkpoint`, and
+`--save-diffusion-checkpoint`.
+
 ### Cite
 
 Please condiser citing our paper if it is helpful to your work!

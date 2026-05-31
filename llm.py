@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from contextlib import nullcontext
+from contextlib import contextmanager
 from typing import List, Optional, Tuple, Union, OrderedDict
 import torch
 from torch import nn
@@ -57,7 +57,7 @@ class MKGL(LlamaForCausalLM):
         from diffusion import KGDiffusion
 
         self.diffusion_mode = mode
-        condition_dim = self.config.hidden_size
+        condition_dim = self.config.hidden_size * 2
         self.diffusion = KGDiffusion(
             num_entities=num_entities,
             condition_dim=condition_dim,
@@ -69,6 +69,27 @@ class MKGL(LlamaForCausalLM):
     @property
     def diffusion_train_only(self):
         return self.diffusion is not None and self.diffusion_mode == "denoiser"
+
+    @contextmanager
+    def frozen_backbone_inference(self, enabled):
+        if not enabled:
+            yield
+            return
+
+        was_training = self.training
+        diffusion_was_training = (
+            self.diffusion.training if self.diffusion is not None else False
+        )
+        self.eval()
+        if self.diffusion is not None:
+            self.diffusion.train(diffusion_was_training)
+        try:
+            with torch.no_grad():
+                yield
+        finally:
+            self.train(was_training)
+            if self.diffusion is not None:
+                self.diffusion.train(diffusion_was_training)
 
     def _diffusion_candidate_ids(self, h_id, t_id):
         is_tail_prediction = (h_id == h_id[:, [0]]).all(dim=-1, keepdim=True)
@@ -133,9 +154,7 @@ class MKGL(LlamaForCausalLM):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         no_grad_baseline = self.training and self.diffusion_train_only
-        grad_context = torch.no_grad() if no_grad_baseline else nullcontext()
-
-        with grad_context:
+        with self.frozen_backbone_inference(no_grad_baseline):
             batch_size = h_kgl_tokenid.shape[0]
             device = self.lm_head.weight.device
 
@@ -175,7 +194,9 @@ class MKGL(LlamaForCausalLM):
             pred = self.score_retriever(h_id, r_id, t_id, hr_hidden_states, rel_token_embs, graph, all_index, all_kgl_index)
 
             if self.diffusion is not None:
-                x_c = self.context_retriever(h_kgl_tokenid, graph, all_index, all_kgl_index)
+                entity_context = self.context_retriever(
+                    h_kgl_tokenid, graph, all_index, all_kgl_index)
+                x_c = torch.cat([entity_context, rel_token_embs], dim=-1)
 
         if self.diffusion is None:
             return pred

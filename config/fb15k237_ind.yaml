@@ -72,6 +72,13 @@ diffusion:
   num_steps: 40
   num_blocks: 1
 
+checkpoint:
+  # Defaults include the selected inductive version, for example
+  # outputs/fb15k237_ind_v1/mkgl_checkpoint.pt.
+  mkgl_path:
+  save_mkgl_path:
+  save_diffusion_path:
+
 
 context_retriever:
   llm_hidden_dim: &llm_hidden_dim 2048  # TinyLlama-1.1B uses 2048, not 4096
