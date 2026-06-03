@@ -208,7 +208,7 @@ class MKGL(LlamaForCausalLM):
             return pred, loss_G
 
         x_refined = self.diffusion.reverse_sample(x_c, device=pred.device)
-        final_score = pred + x_refined[:, :pred.shape[-1]].to(dtype=pred.dtype)
+        final_score = pred + 0.1*x_refined[:, :pred.shape[-1]].to(dtype=pred.dtype)
         return final_score
     
 

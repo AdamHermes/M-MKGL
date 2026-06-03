@@ -46,7 +46,7 @@ trainer:
   bf16: no
   logging_steps: 5
   logging_strategy: steps
-  learning_rate: 5.0e-3
+  learning_rate: 1e-4
   gradient_accumulation_steps: 4
   eval_accumulation_steps: 64
   save_safetensors: no
