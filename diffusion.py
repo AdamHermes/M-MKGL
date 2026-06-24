@@ -115,8 +115,13 @@ class KGDiffusion(nn.Module):
         x_t = alpha_bar_t.sqrt() * x_0 + (1 - alpha_bar_t).sqrt() * eps
         return x_t, eps
 
-    def compute_loss_G(self, x_0, x_c):
-        x_0 = x_0.detach().float()
+    def predict_x0(self, x_t, eps_pred, t):
+        alpha_bar_t = self.alpha_bar[t].unsqueeze(-1).to(x_t.device)
+        return (x_t - (1 - alpha_bar_t).sqrt() * eps_pred) / alpha_bar_t.sqrt()
+
+    def training_refine(self, x_0, x_c):
+        """Denoise one sampled timestep and return the clean-score estimate."""
+        x_0 = x_0.float()
         batch_size = x_0.shape[0]
         t = torch.randint(
             0,
@@ -127,7 +132,14 @@ class KGDiffusion(nn.Module):
         )
         x_t, eps_true = self.forward_diffuse(x_0, t)
         eps_pred = self.denoiser(x_t, x_c, t)
-        return F.mse_loss(eps_pred.float(), eps_true.float())
+        x0_pred = self.predict_x0(x_t, eps_pred, t)
+        loss_g = F.mse_loss(eps_pred.float(), eps_true.float())
+        return x0_pred, loss_g
+
+    def compute_loss_G(self, x_0, x_c):
+        x_0 = x_0.detach().float()
+        _, loss_g = self.training_refine(x_0, x_c)
+        return loss_g
 
     @torch.no_grad()
     def reverse_sample(self, x_c, device=None):

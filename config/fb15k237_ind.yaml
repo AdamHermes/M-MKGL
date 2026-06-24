@@ -71,6 +71,9 @@ diffusion:
   hidden_dim: 512
   num_steps: 40
   num_blocks: 1
+  score_weight: 1.0
+  eval_score_weight: 1.0
+  loss_weight: 1.0
 
 checkpoint:
   # Defaults include the selected inductive version, for example

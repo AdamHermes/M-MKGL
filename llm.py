@@ -28,6 +28,9 @@ class MKGL(LlamaForCausalLM):
         super().__init__(config)
         self.diffusion = None
         self.diffusion_mode = "joint"
+        self.diffusion_score_weight = 1.0
+        self.diffusion_eval_score_weight = 1.0
+        self.diffusion_loss_weight = 1.0
 
     def init_kg_specs(self, kgl2token, orig_vocab_size, cfg, image_features=None, image_feature_mask=None):
         self.kgl2token = kgl2token
@@ -53,10 +56,23 @@ class MKGL(LlamaForCausalLM):
 
         # self._init_kg_score(len(kgl_vocab), r)
 
-    def init_diffusion(self, num_entities, hidden_dim, num_steps=40, num_blocks=1, mode="joint"):
+    def init_diffusion(
+        self,
+        num_entities,
+        hidden_dim,
+        num_steps=40,
+        num_blocks=1,
+        mode="joint",
+        score_weight=1.0,
+        eval_score_weight=1.0,
+        loss_weight=1.0,
+    ):
         from diffusion import KGDiffusion
 
         self.diffusion_mode = mode
+        self.diffusion_score_weight = float(score_weight)
+        self.diffusion_eval_score_weight = float(eval_score_weight)
+        self.diffusion_loss_weight = float(loss_weight)
         condition_dim = self.config.hidden_size * 2
         self.diffusion = KGDiffusion(
             num_entities=num_entities,
@@ -108,6 +124,11 @@ class MKGL(LlamaForCausalLM):
         x_0 = pred.new_zeros(pred.shape[0], self.diffusion.num_entities)
         x_0.scatter_(1, candidate_ids.to(pred.device), pred)
         return x_0
+
+    def _gather_from_diffusion_space(self, scores, candidate_ids, pred_width):
+        if pred_width == self.diffusion.num_entities:
+            return scores[:, :pred_width]
+        return scores.gather(1, candidate_ids.to(scores.device))
 
     def _init_kg_score(self, num_kg_tokens, ent_inter_emb_dim=64):
         device = self.lm_head.weight.device
@@ -204,11 +225,22 @@ class MKGL(LlamaForCausalLM):
         if self.training:
             candidate_ids = self._diffusion_candidate_ids(h_id, t_id)
             x_0 = self._scores_to_diffusion_space(pred, candidate_ids)
-            loss_G = self.diffusion.compute_loss_G(x_0.detach(), x_c.detach())
-            return pred, loss_G
+            x0_target = x_0.detach()
+            x_c_target = x_c.detach() if self.diffusion_train_only else x_c
+            x0_pred, loss_G = self.diffusion.training_refine(x0_target, x_c_target)
+            denoised_pred = self._gather_from_diffusion_space(
+                x0_pred, candidate_ids, pred.shape[-1])
+            if self.diffusion_train_only:
+                final_score = denoised_pred
+            else:
+                final_score = pred + self.diffusion_score_weight * denoised_pred.to(dtype=pred.dtype)
+            return final_score, loss_G * self.diffusion_loss_weight
 
         x_refined = self.diffusion.reverse_sample(x_c, device=pred.device)
-        final_score = pred + 0.1*x_refined[:, :pred.shape[-1]].to(dtype=pred.dtype)
+        candidate_ids = self._diffusion_candidate_ids(h_id, t_id)
+        denoised_pred = self._gather_from_diffusion_space(
+            x_refined, candidate_ids, pred.shape[-1])
+        final_score = pred + self.diffusion_eval_score_weight * denoised_pred.to(dtype=pred.dtype)
         return final_score
     
 

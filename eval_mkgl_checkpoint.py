@@ -1,4 +1,5 @@
 import argparse
+import sys
 import yaml
 
 import easydict
@@ -16,7 +17,12 @@ from main import (
     load_component_checkpoint,
     print_trainable_parameter_summary,
 )
-from preprocess import InductiveKGCDataset, KGCDataset
+from preprocess import InductiveKGCDataset, KGCDataset, Prompter
+
+
+# Older preprocessed dataset pickles may reference __main__.Prompter because
+# they were created by running preprocess.py as a script.
+setattr(sys.modules["__main__"], "Prompter", Prompter)
 
 
 def build_config_name(config_path, dataset_cfg):
@@ -55,7 +61,7 @@ def freeze_all_parameters(model):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Evaluate a saved MKGL Trainer checkpoint without diffusion."
+        description="Evaluate a saved MKGL component checkpoint, optionally with diffusion."
     )
     parser.add_argument("--config", "-c", type=str, required=True)
     parser.add_argument("--checkpoint", type=str, required=True,
@@ -65,6 +71,8 @@ def main():
     parser.add_argument("--eval-split", choices=("valid", "test"), default="test")
     parser.add_argument("--disable-image-features", action="store_true",
                         help="Ignore config.image_features for original text-only MKGL checks.")
+    parser.add_argument("--with-diffusion", action="store_true",
+                        help="Initialize diffusion from the config and evaluate refined scores.")
     args = parser.parse_args()
 
     with open(args.config, "r") as f:
@@ -80,7 +88,10 @@ def main():
         print("Config file: %s" % args.config)
         print("Checkpoint: %s" % args.checkpoint)
         print("Eval split: %s" % args.eval_split)
-        print("Diffusion is disabled in this script, regardless of config.diffusion.")
+        if args.with_diffusion:
+            print("Diffusion evaluation is enabled.")
+        else:
+            print("Diffusion is disabled for this eval run.")
         if args.disable_image_features:
             print("Image features are disabled for this eval run.")
         print(pretty.format(cfg))
@@ -121,6 +132,26 @@ def main():
         image_features=kgl_image_features,
         image_feature_mask=kgl_image_mask,
     )
+
+    if args.with_diffusion:
+        diffusion_cfg = getattr(cfg, "diffusion", easydict.EasyDict())
+        if hasattr(dataset.kgdata, "inductive_vocab"):
+            num_entities = max(
+                len(dataset.kgdata.transductive_vocab),
+                len(dataset.kgdata.inductive_vocab),
+            )
+        else:
+            num_entities = int(dataset.kgdata.num_entity)
+        model.init_diffusion(
+            num_entities=num_entities,
+            hidden_dim=int(getattr(diffusion_cfg, "hidden_dim", 2048)),
+            num_steps=int(getattr(diffusion_cfg, "num_steps", 40)),
+            num_blocks=int(getattr(diffusion_cfg, "num_blocks", 1)),
+            mode=str(getattr(diffusion_cfg, "mode", "denoiser")),
+            score_weight=float(getattr(diffusion_cfg, "score_weight", 1.0)),
+            eval_score_weight=float(getattr(diffusion_cfg, "eval_score_weight", 1.0)),
+            loss_weight=float(getattr(diffusion_cfg, "loss_weight", 1.0)),
+        )
 
     load_component_checkpoint(model, args.checkpoint, required=True)
     freeze_all_parameters(model)

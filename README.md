@@ -90,10 +90,8 @@ retriever, and score retriever weights to:
 outputs/<config_name>/mkgl_checkpoint.pt
 ```
 
-Stage 2 trains only the diffusion denoiser. Set `diffusion.enabled: yes` and
-`diffusion.mode: denoiser` in the same config, then run the same command again.
-The MKGL checkpoint is loaded as a frozen inference conditioner, and the
-diffusion checkpoint is saved to:
+Stage 2 trains only the diffusion denoiser. The MKGL checkpoint is loaded as a
+frozen inference conditioner, and the diffusion checkpoint is saved to:
 
 ```
 outputs/<config_name>/diffusion_checkpoint.pt
@@ -101,6 +99,25 @@ outputs/<config_name>/diffusion_checkpoint.pt
 
 You can override paths with `--mkgl-checkpoint`, `--save-mkgl-checkpoint`, and
 `--save-diffusion-checkpoint`.
+
+For FB15k-237, the two-stage run is:
+
+```
+sh scripts/fb15k237.sh
+sh scripts/fb15k237_diffusion_stage2.sh
+```
+
+For joint training instead of the frozen second stage:
+
+```
+sh scripts/fb15k237_diffusion_joint.sh
+```
+
+Evaluate a diffusion checkpoint with:
+
+```
+python eval_mkgl_checkpoint.py -c config/fb15k237.yaml --checkpoint outputs/fb15k237/diffusion_checkpoint.pt --with-diffusion
+```
 
 ### Cite
 

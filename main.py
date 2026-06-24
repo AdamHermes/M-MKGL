@@ -280,12 +280,28 @@ if __name__ == "__main__":
                         help="Path where the trained MKGL component checkpoint will be saved.")
     parser.add_argument("--save-diffusion-checkpoint", type=str, default=None,
                         help="Path where the diffusion-stage component checkpoint will be saved.")
+    parser.add_argument("--enable-diffusion", action="store_true",
+                        help="Enable diffusion training without editing the YAML config.")
+    parser.add_argument("--diffusion-mode", choices=("denoiser", "joint"), default=None,
+                        help="Use `denoiser` for stage 2 or `joint` for end-to-end training.")
+    parser.add_argument("--learning-rate", type=float, default=None,
+                        help="Override trainer.learning_rate, useful for low-LR diffusion stage training.")
+    parser.add_argument("--num-train-epochs", type=float, default=None,
+                        help="Override trainer.num_train_epochs.")
     args = parser.parse_args()
     
     with open(args.config, "r") as f:
         cfg = easydict.EasyDict(yaml.safe_load(f))
         if args.version:
             cfg.dataset.version = args.version
+    if args.enable_diffusion:
+        cfg.diffusion.enabled = True
+    if args.diffusion_mode is not None:
+        cfg.diffusion.mode = args.diffusion_mode
+    if args.learning_rate is not None:
+        cfg.trainer.learning_rate = args.learning_rate
+    if args.num_train_epochs is not None:
+        cfg.trainer.num_train_epochs = args.num_train_epochs
     torch.manual_seed(args.seed + comm.get_rank())
 
     config_name = args.config.split('/')[-1].split('.')[0]
@@ -376,6 +392,9 @@ if __name__ == "__main__":
             num_steps=int(getattr(diffusion_cfg, "num_steps", 40)),
             num_blocks=int(getattr(diffusion_cfg, "num_blocks", 1)),
             mode=diffusion_mode,
+            score_weight=float(getattr(diffusion_cfg, "score_weight", 1.0)),
+            eval_score_weight=float(getattr(diffusion_cfg, "eval_score_weight", 1.0)),
+            loss_weight=float(getattr(diffusion_cfg, "loss_weight", 1.0)),
         )
 
         if diffusion_mode == "denoiser":
