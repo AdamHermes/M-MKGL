@@ -274,6 +274,14 @@ class KGL4KGC(nn.Module):
         self.num_negative = config.num_negative
         self.adversarial_temperature = config.adversarial_temperature
         self.strict_negative = config.strict_negative
+        self.grpo_weight = float(getattr(config, "grpo_weight", 0.0))
+        self.grpo_temperature = float(getattr(config, "grpo_temperature", 1.0))
+        self.grpo_normalize_advantage = bool(
+            getattr(config, "grpo_normalize_advantage", True))
+        self.grpo_positive_reward = float(
+            getattr(config, "grpo_positive_reward", 1.0))
+        self.grpo_negative_reward = float(
+            getattr(config, "grpo_negative_reward", 0.0))
         
         train_set, valid_set, test_set = dataset.kgdata.split()
         self.preprocess(train_set, valid_set, test_set)
@@ -291,6 +299,21 @@ class KGL4KGC(nn.Module):
         return bool(getattr(inner_model, "diffusion_train_only", False))
 
     
+    def grpo_loss(self, pred, target):
+        temperature = max(self.grpo_temperature, 1e-6)
+        rewards = torch.where(
+            target > 0,
+            torch.full_like(pred, self.grpo_positive_reward),
+            torch.full_like(pred, self.grpo_negative_reward),
+        )
+        advantages = rewards - rewards.mean(dim=-1, keepdim=True)
+        if self.grpo_normalize_advantage:
+            advantages = advantages / advantages.std(
+                dim=-1, keepdim=True).clamp_min(1e-6)
+
+        log_policy = F.log_softmax(pred / temperature, dim=-1)
+        return -(advantages.detach() * log_policy).sum(dim=-1).mean()
+
     def loss(self, pred, target, all_loss=None, loss_G=None):
         metric = {}
         loss = F.binary_cross_entropy_with_logits(
@@ -306,6 +329,11 @@ class KGL4KGC(nn.Module):
         loss = (loss * neg_weight).sum(dim=-1) / neg_weight.sum(dim=-1)
         loss_D = loss.mean()
         total_loss = loss_D
+        loss_grpo = None
+
+        if self.training and self.grpo_weight > 0:
+            loss_grpo = self.grpo_loss(pred, target)
+            total_loss = total_loss + self.grpo_weight * loss_grpo
 
         
         if all_loss is not None:
@@ -317,6 +345,7 @@ class KGL4KGC(nn.Module):
         metric['loss'] = total_loss
         metric['loss_D'] = loss_D.item()
         metric['loss_G'] = loss_G.item() if loss_G is not None else 0.0
+        metric['loss_GRPO'] = loss_grpo.item() if loss_grpo is not None else 0.0
         
         return total_loss, metric
     

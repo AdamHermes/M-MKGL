@@ -64,6 +64,11 @@ mkgl4kgc:
   num_negative: 32
   strict_negative: yes
   adversarial_temperature: 0.5
+  grpo_weight: 0.0
+  grpo_temperature: 1.0
+  grpo_normalize_advantage: yes
+  grpo_positive_reward: 1.0
+  grpo_negative_reward: 0.0
 
 diffusion:
   enabled: no

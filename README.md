@@ -80,6 +80,23 @@ Please kindly use the provide scripts to run the model:
 sh scripts/fb15k237.sh
 ```
 
+### First-stage GRPO experiment
+
+The first-stage objective can add a group-relative policy term over each
+training group of one positive entity and sampled negatives:
+
+```
+sh scripts/fb15k237_grpo.sh
+```
+
+The GRPO term is disabled by default. To run a sweep manually:
+
+```
+accelerate launch --gpu_ids 'all' --num_processes 8 --mixed_precision bf16 main.py -c config/fb15k237.yaml --grpo-weight 0.05
+accelerate launch --gpu_ids 'all' --num_processes 8 --mixed_precision bf16 main.py -c config/fb15k237.yaml --grpo-weight 0.1
+accelerate launch --gpu_ids 'all' --num_processes 8 --mixed_precision bf16 main.py -c config/fb15k237.yaml --grpo-weight 0.2
+```
+
 ### Two-stage MKGL + diffusion training
 
 Stage 1 trains MKGL with LoRA and the KG score retriever. When

@@ -33,3 +33,4 @@ pip install datasets protobuf tensorboardX
 pip install torchdrug
 
 python scripts/build_clip_features.py --fp16 --batch-size 32 --num-urls-per-entity 1
+python preprocess.py -c config/fb15k237_ind.yaml --version v1

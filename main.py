@@ -288,6 +288,10 @@ if __name__ == "__main__":
                         help="Override trainer.learning_rate, useful for low-LR diffusion stage training.")
     parser.add_argument("--num-train-epochs", type=float, default=None,
                         help="Override trainer.num_train_epochs.")
+    parser.add_argument("--grpo-weight", type=float, default=None,
+                        help="Weight for the group-relative policy objective during first-stage training.")
+    parser.add_argument("--grpo-temperature", type=float, default=None,
+                        help="Softmax temperature for the group-relative policy objective.")
     args = parser.parse_args()
     
     with open(args.config, "r") as f:
@@ -302,6 +306,10 @@ if __name__ == "__main__":
         cfg.trainer.learning_rate = args.learning_rate
     if args.num_train_epochs is not None:
         cfg.trainer.num_train_epochs = args.num_train_epochs
+    if args.grpo_weight is not None:
+        cfg.mkgl4kgc.grpo_weight = args.grpo_weight
+    if args.grpo_temperature is not None:
+        cfg.mkgl4kgc.grpo_temperature = args.grpo_temperature
     torch.manual_seed(args.seed + comm.get_rank())
 
     config_name = args.config.split('/')[-1].split('.')[0]
