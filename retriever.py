@@ -151,13 +151,45 @@ class ScoreRetriever(BasePNARetriever):
         self.r_down_scaling = nn.Linear(
                 self.config.llm_hidden_dim, self.config.r, bias=False, dtype=torch.float)
 
+        self.last_pruning_offset = None
+        self.last_pruning_num_node = None
+        self.last_pruning_visited_mask = None
+        self.last_pruning_node_out_per_layer = None
+
     def forward(self, h_id, r_id, t_id,  hidden_states, rel_hidden_states, graph, all_index, all_kgl_index):
         score_text_embs = super().forward(all_kgl_index)
         head_embeds = self.h_down_scaling(hidden_states) 
         rel_embeds = self.r_down_scaling(rel_hidden_states) 
+
+        # Cache query representations for the in-breadth diversity loss.
+        # Kept as live tensors (not detached) so gradients flow through.
+        self.last_head_embeds = head_embeds
+        self.last_rel_embeds = rel_embeds
+
         score = self.kg_retriever(h_id, r_id, t_id, head_embeds, rel_embeds, graph, score_text_embs, all_index)
-        
+
+        if getattr(self.kg_retriever, "log_pruning_stats", False):
+            # Pass-through so callers (e.g. eval-detail logging in llm.py)
+            # can check whether a specific candidate node was ever reached
+            # by propagation, without needing to know about kg_retriever.
+            self.last_pruning_offset = self.kg_retriever.last_offset
+            self.last_pruning_num_node = self.kg_retriever.last_num_node
+            self.last_pruning_visited_mask = self.kg_retriever.last_visited_mask
+            self.last_pruning_node_out_per_layer = self.kg_retriever.last_node_out_per_layer
+
         return score
+
+    def enable_pruning_stats(self):
+        if hasattr(self.kg_retriever, "enable_pruning_stats"):
+            self.kg_retriever.enable_pruning_stats()
+
+    def disable_pruning_stats(self):
+        if hasattr(self.kg_retriever, "disable_pruning_stats"):
+            self.kg_retriever.disable_pruning_stats()
+        self.last_pruning_offset = None
+        self.last_pruning_num_node = None
+        self.last_pruning_visited_mask = None
+        self.last_pruning_node_out_per_layer = None
 
 class RelScoreRetriever(BasePNARetriever):
     

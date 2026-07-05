@@ -292,9 +292,18 @@ if __name__ == "__main__":
                         help="Weight for the group-relative policy objective during first-stage training.")
     parser.add_argument("--grpo-temperature", type=float, default=None,
                         help="Softmax temperature for the group-relative policy objective.")
+    parser.add_argument("--diversity-weight", type=float, default=None,
+                        help="Weight for the in-breadth diversity loss (CIDF-style). "
+                             "Penalises similar query representations within a batch "
+                             "to prevent hub/degree bias.")
     parser.add_argument("--log-eval-details", action="store_true",
                         help="Dump per-triple eval predictions (top-k candidate probabilities, "
                              "chosen entity, rank) to a jsonl file.")
+    parser.add_argument("--log-pruning-stats", action="store_true",
+                        help="Alongside --log-eval-details, also record whether the gold "
+                             "candidate survived ConditionedPNA's per-layer node pruning "
+                             "(select_edges), and at which layer it was first reached. Adds "
+                             "some overhead since it tracks node visits every layer.")
     parser.add_argument("--eval-log-path", type=str, default=None,
                         help="Where to write the eval-details jsonl. Defaults to "
                              "<output_dir>/eval_details.jsonl.")
@@ -320,6 +329,8 @@ if __name__ == "__main__":
         cfg.mkgl4kgc.grpo_weight = args.grpo_weight
     if args.grpo_temperature is not None:
         cfg.mkgl4kgc.grpo_temperature = args.grpo_temperature
+    if args.diversity_weight is not None:
+        cfg.mkgl4kgc.diversity_weight = args.diversity_weight
     torch.manual_seed(args.seed + comm.get_rank())
 
     config_name = args.config.split('/')[-1].split('.')[0]
@@ -389,11 +400,6 @@ if __name__ == "__main__":
         or default_diffusion_checkpoint
     )
 
-    # if diffusion_enabled and diffusion_mode == "denoiser":
-    #     if comm.get_rank() == 0:
-    #         print("Stage 2 diffusion denoiser training enabled.")
-    #         print("Loading frozen MKGL checkpoint from %s" % mkgl_checkpoint_path)
-    #     load_component_checkpoint(model, mkgl_checkpoint_path, required=True)
     if args.mkgl_checkpoint is not None:
         if comm.get_rank() == 0:
             print("Loading MKGL checkpoint from %s" % mkgl_checkpoint_path)
@@ -489,7 +495,7 @@ if __name__ == "__main__":
         if args.log_eval_details:
             if comm.get_rank() == 0:
                 print("Logging detailed eval predictions to %s" % eval_log_path)
-            task.enable_eval_logging(eval_log_path, topk=args.eval_log_topk)
+            task.enable_eval_logging(eval_log_path, topk=args.eval_log_topk, log_pruning_stats=args.log_pruning_stats)
             trainer.evaluate()
             task.disable_eval_logging()
         sys.exit(0)
@@ -499,7 +505,7 @@ if __name__ == "__main__":
     if args.log_eval_details:
         if comm.get_rank() == 0:
             print("Logging detailed eval predictions to %s" % eval_log_path)
-        task.enable_eval_logging(eval_log_path, topk=args.eval_log_topk)
+        task.enable_eval_logging(eval_log_path, topk=args.eval_log_topk, log_pruning_stats=args.log_pruning_stats)
         trainer.evaluate()
         task.disable_eval_logging()
 

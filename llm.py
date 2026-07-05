@@ -284,13 +284,15 @@ class KGL4KGC(nn.Module):
             getattr(config, "grpo_positive_reward", 1.0))
         self.grpo_negative_reward = float(
             getattr(config, "grpo_negative_reward", 0.0))
+        self.diversity_weight = float(getattr(config, "diversity_weight", 0.0))
 
         # --- eval logging state ---
         self.log_eval_details = False
         self.eval_log_topk = 10
         self._eval_log_file = None
-        self._entity_names = None
+        self._entity_names_by_split = {}
         self._relation_names = None
+        self.log_pruning_stats = False
 
         train_set, valid_set, test_set = dataset.kgdata.split()
         self.preprocess(train_set, valid_set, test_set)
@@ -307,45 +309,68 @@ class KGL4KGC(nn.Module):
         inner_model = getattr(base_model, "model", None)
         return bool(getattr(inner_model, "diffusion_train_only", False))
 
+    @property
+    def score_retriever(self):
+        # `score_retriever` lives on the underlying MKGL model (set in
+        # MKGL.init_kg_specs), not on this task wrapper. Handle both a
+        # plain llmodel and a LoRA/PEFT-wrapped one (base_model.model),
+        # same pattern as diffusion_train_only above.
+        sr = getattr(self.llmodel, "score_retriever", None)
+        if sr is not None:
+            return sr
+        base_model = getattr(self.llmodel, "base_model", None)
+        inner_model = getattr(base_model, "model", None)
+        sr = getattr(inner_model, "score_retriever", None)
+        if sr is None:
+            raise AttributeError(
+                "Could not find score_retriever on self.llmodel "
+                "(checked both the plain and LoRA-wrapped locations)."
+            )
+        return sr
+
     
     # ------------------------------------------------------------------
     # Eval-detail logging: dumps, for every test triple, the filtered
     # score distribution over candidate entities and the entity the
     # model actually picked, so you can inspect failure modes.
     # ------------------------------------------------------------------
-    def enable_eval_logging(self, path, topk=10):
+    def _entity_vocab_for_split(self, split):
+        # Base (transductive) dataset only ever has one entity vocab.
+        # KGL4IndKGC overrides this for the inductive train/valid vs test split.
+        return np.array(self.dataset.kgdata.entity_vocab)
+
+    def _get_entity_names(self, split):
+        if split not in self._entity_names_by_split:
+            self._entity_names_by_split[split] = self._entity_vocab_for_split(split)
+        return self._entity_names_by_split[split]
+
+    def enable_eval_logging(self, path, topk=10, log_pruning_stats=False):
         parent = os.path.dirname(path)
         if parent:
             os.makedirs(parent, exist_ok=True)
-
         self._eval_log_file = open(path, "w")
         self.eval_log_topk = topk
         self.log_eval_details = True
-
-        if self._entity_names is None:
-            kgdata = self.dataset.kgdata
-
-            # transductive KG
-            if hasattr(kgdata, "entity_vocab"):
-                entity_vocab = kgdata.entity_vocab
-
-            # inductive KG
-            else:
-                entity_vocab = list(kgdata.transductive_vocab) + \
-                            list(kgdata.inductive_vocab)
-
-            self._entity_names = np.array(entity_vocab)
-            self._relation_names = np.array(kgdata.relation_vocab)
+        if self._relation_names is None:
+            self._relation_names = np.array(self.dataset.kgdata.relation_vocab)
+        self.log_pruning_stats = log_pruning_stats
+        if log_pruning_stats:
+            self.score_retriever.enable_pruning_stats()
 
     def disable_eval_logging(self):
         self.log_eval_details = False
         if self._eval_log_file is not None:
             self._eval_log_file.close()
             self._eval_log_file = None
+        if self.log_pruning_stats:
+            self.score_retriever.disable_pruning_stats()
+        self.log_pruning_stats = False
 
     def _log_eval_batch(self, batch, pred, mask, target, ranking):
         k = min(self.eval_log_topk, pred.shape[-1])
         batch_size = len(batch.h_id)
+        split = getattr(batch, "split", "test")
+        entity_names = self._get_entity_names(split)
 
         # Build a "filtered" probability distribution: mask out all other
         # known-true candidates (as in the ranking protocol) but keep the
@@ -358,29 +383,54 @@ class KGL4KGC(nn.Module):
         probs = F.softmax(masked_scores, dim=-1)
         topk_probs, topk_ids = probs.topk(k, dim=-1)
 
-        h_names = self._entity_names[batch.h_id.cpu().numpy()]
-        t_names = self._entity_names[batch.t_id.cpu().numpy()]
+        h_names = entity_names[batch.h_id.cpu().numpy()]
+        t_names = entity_names[batch.t_id.cpu().numpy()]
         r_names = self._relation_names[batch.r_id.cpu().numpy()]
+
+        # Pruning-visibility diagnostics: did the gold candidate ever get a
+        # message during ConditionedPNA's propagation, or did it sit at its
+        # init_score baseline the whole time (i.e. was it pruned out by
+        # select_edges before scoring could reach it)?
+        gold_reached = None
+        reached_at_layer = None
+        if self.log_pruning_stats and self.score_retriever.last_pruning_visited_mask is not None:
+            offset = self.score_retriever.last_pruning_offset.to(target.device)
+            global_target = target + offset
+            visited_mask = self.score_retriever.last_pruning_visited_mask
+            gold_reached = visited_mask[global_target].cpu()
+
+            node_out_per_layer = self.score_retriever.last_pruning_node_out_per_layer
+            reached_at_layer = torch.full((len(target),), -1, dtype=torch.long)
+            for layer_idx, node_out in enumerate(node_out_per_layer):
+                still_unset = reached_at_layer == -1
+                if not still_unset.any():
+                    break
+                hit = torch.isin(global_target.cpu(), node_out.cpu()) & still_unset
+                reached_at_layer[hit] = layer_idx
 
         def make_record(i, task_name, query_name, rel_name, true_name, true_id):
             top_ids = topk_ids[i].cpu().tolist()
             top_probs = topk_probs[i].cpu().tolist()
-            return {
+            record = {
                 "task": task_name,               # "tail_prediction" or "head_prediction"
                 "query_entity": str(query_name),
                 "relation": str(rel_name),
                 "true_entity": str(true_name),
                 "true_entity_id": int(true_id),
                 "rank": int(ranking[i].item()),
-                "predicted_entity": str(self._entity_names[top_ids[0]]),
+                "predicted_entity": str(entity_names[top_ids[0]]),
                 "predicted_entity_id": int(top_ids[0]),
                 "predicted_prob": float(top_probs[0]),
                 "correct": bool(top_ids[0] == int(true_id)),
                 "topk": [
-                    {"entity": str(self._entity_names[eid]), "id": int(eid), "prob": float(p)}
+                    {"entity": str(entity_names[eid]), "id": int(eid), "prob": float(p)}
                     for eid, p in zip(top_ids, top_probs)
                 ],
             }
+            if gold_reached is not None:
+                record["gold_reached_by_propagation"] = bool(gold_reached[i].item())
+                record["gold_reached_at_layer"] = int(reached_at_layer[i].item())
+            return record
 
         for i in range(batch_size):
             record = make_record(
@@ -413,6 +463,43 @@ class KGL4KGC(nn.Module):
         log_policy = F.log_softmax(pred / temperature, dim=-1)
         return -(advantages.detach() * log_policy).sum(dim=-1).mean()
 
+    def diversity_loss(self):
+        """
+        In-breadth diversity loss (CIDF-style): penalises high cosine
+        similarity between different query representations within the
+        same mini-batch.
+
+        This pushes the model to produce *query-specific* score
+        distributions rather than defaulting to the same high-degree
+        "hub" entities for every query, directly addressing the
+        in-breadth bias failure mode.
+
+        The cached head_embeds / rel_embeds are live (not detached),
+        so the gradient flows back through the h_down_scaling,
+        r_down_scaling projections and the LLM backbone.
+        """
+        sr = self.score_retriever
+        head_embeds = getattr(sr, "last_head_embeds", None)
+        rel_embeds = getattr(sr, "last_rel_embeds", None)
+        if head_embeds is None or rel_embeds is None:
+            return torch.tensor(0.0, device=self.device, requires_grad=False)
+
+        # Query signature = concat(head_repr, relation_repr)  [N, 2r]
+        query_repr = torch.cat([head_embeds, rel_embeds], dim=-1)
+        query_repr = F.normalize(query_repr, p=2, dim=-1)
+
+        # Pairwise cosine similarity  [N, N]
+        sim_matrix = torch.mm(query_repr, query_repr.t())
+
+        # Exclude the diagonal (self-similarity is always 1)
+        n = sim_matrix.shape[0]
+        mask = ~torch.eye(n, dtype=torch.bool, device=sim_matrix.device)
+        off_diag = sim_matrix[mask]
+
+        # Squared cosine similarity: gently penalises high similarity
+        # without forcing negative correlation.
+        return (off_diag ** 2).mean()
+
     def loss(self, pred, target, all_loss=None, loss_G=None):
         metric = {}
         loss = F.binary_cross_entropy_with_logits(
@@ -426,34 +513,18 @@ class KGL4KGC(nn.Module):
         else:
             neg_weight[:, 1:] = 1 / self.num_negative
         loss = (loss * neg_weight).sum(dim=-1) / neg_weight.sum(dim=-1)
-                # -----------------------------
-        # BCE loss
-        # -----------------------------
         loss_D = loss.mean()
-
-        # -----------------------------
-        # Margin ranking loss
-        # -----------------------------
-        pos_score = pred[:, :1]
-        neg_score = pred[:, 1:]
-
-        margin = 1.0
-
-        margin_loss = F.relu(
-            margin - pos_score + neg_score
-        ).mean()
-
-        # -----------------------------
-        # Final loss
-        # -----------------------------
-        total_loss = loss_D + 0.5 * margin_loss
-
-        metric["margin_loss"] = margin_loss.item()
+        total_loss = loss_D
         loss_grpo = None
+        loss_div = None
 
         if self.training and self.grpo_weight > 0:
             loss_grpo = self.grpo_loss(pred, target)
             total_loss = total_loss + self.grpo_weight * loss_grpo
+
+        if self.training and self.diversity_weight > 0:
+            loss_div = self.diversity_loss()
+            total_loss = total_loss + self.diversity_weight * loss_div
 
         
         if all_loss is not None:
@@ -466,6 +537,7 @@ class KGL4KGC(nn.Module):
         metric['loss_D'] = loss_D.item()
         metric['loss_G'] = loss_G.item() if loss_G is not None else 0.0
         metric['loss_GRPO'] = loss_grpo.item() if loss_grpo is not None else 0.0
+        metric['loss_DIV'] = loss_div.item() if loss_div is not None else 0.0
         
         return total_loss, metric
     
@@ -486,12 +558,8 @@ class KGL4KGC(nn.Module):
                 }
                 return loss_G, metric
             
-            target = torch.full_like(
-                pred,
-                0.1 / self.num_negative
-            )
-
-            target[:, 0] = 0.9
+            target = torch.zeros_like(pred)
+            target[:, 0] = 1
             
             return self.loss(pred, target, all_loss=all_loss, loss_G=loss_G)
         
@@ -696,6 +764,11 @@ class KGL4IndKGC(KGL4KGC):
         tokenid = np.stack([self.dataset.rawname2tokenid.loc[n]
                            for n in rawname])
         return torch.tensor(tokenid, dtype=id.dtype, device=id.device)
+
+    def _entity_vocab_for_split(self, split):
+        if split == 'test':
+            return np.array(self.dataset.kgdata.inductive_vocab)
+        return np.array(self.dataset.kgdata.transductive_vocab)
 
     def get_graph(self, batch):
         return self.inductive_fact_graph if batch.split == "test" else self.fact_graph

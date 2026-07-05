@@ -69,6 +69,29 @@ class ConditionedPNA(PNA, core.Configurable):
         self.linear = nn.Linear(feature_dim, base_layer.output_dim)
         self.mlp = layers.MLP(base_layer.output_dim, [feature_dim] * (num_mlp_layer - 1) + [1])
 
+        # --- pruning-visibility diagnostics ---
+        # When enabled, `aggregate` records, per layer, which (global,
+        # RepeatGraph-offset) node ids actually received a propagated
+        # message this layer (i.e. survived `select_edges`). Callers can
+        # use this + the `offset` computed in `forward` to check whether a
+        # specific candidate node (e.g. the gold tail) was ever reached,
+        # or got stuck at its `init_score` baseline the whole time.
+        self.log_pruning_stats = False
+        self.last_offset = None
+        self.last_num_node = None
+        self.last_node_out_per_layer = None
+        self.last_visited_mask = None
+
+    def enable_pruning_stats(self):
+        self.log_pruning_stats = True
+
+    def disable_pruning_stats(self):
+        self.log_pruning_stats = False
+        self.last_offset = None
+        self.last_num_node = None
+        self.last_node_out_per_layer = None
+        self.last_visited_mask = None
+
 
     def forward(self, h_index, r_index, t_index, hidden_states, rel_hidden_states, graph, score_text_embs, all_index):
         if self.training:
@@ -84,6 +107,10 @@ class ConditionedPNA(PNA, core.Configurable):
         t_index = t_index + offset.unsqueeze(-1).to(t_index.device)
         assert (h_index[:, [0]] == h_index).all()
         assert (r_index[:, [0]] == r_index).all()
+
+        if self.log_pruning_stats:
+            self.last_offset = offset.detach()
+            self.last_num_node = graph.num_node
 
         rel_embeds = self.rel_embedding(r_index[:, 0]) 
         rel_embeds = rel_embeds.type(hidden_states.dtype) #+ rel_hidden_states
@@ -109,6 +136,10 @@ class ConditionedPNA(PNA, core.Configurable):
             graph.edge_id = Range(graph.num_edge, device=h_index.device)
         pna_degree_mean = (graph[0].degree_out + 1).log().mean()
 
+        if self.log_pruning_stats:
+            node_out_per_layer = []
+            visited_mask = torch.zeros(graph.num_node, dtype=torch.bool, device=h_index.device)
+
         for layer in self.layers:
             edge_index = self.select_edges(graph, graph.score)
             subgraph = graph.edge_mask(edge_index, compact=True)
@@ -119,6 +150,10 @@ class ConditionedPNA(PNA, core.Configurable):
             out_mask = subgraph.degree_out > 0
             node_out = subgraph.node_id[out_mask]
 
+            if self.log_pruning_stats:
+                node_out_per_layer.append(node_out.detach().clone())
+                visited_mask[node_out] = True
+
             graph.hidden[node_out] = (graph.hidden[node_out] + hidden[out_mask]).type(graph.hidden[node_out].dtype)
 
             index = graph.node2graph[node_out]
@@ -127,6 +162,10 @@ class ConditionedPNA(PNA, core.Configurable):
             data_dict, meta_dict = subgraph.data_by_meta("graph")
             graph.meta_dict.update(meta_dict)
             graph.__dict__.update(data_dict)
+
+        if self.log_pruning_stats:
+            self.last_node_out_per_layer = node_out_per_layer
+            self.last_visited_mask = visited_mask
 
         return graph.score
 

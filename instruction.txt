@@ -37,7 +37,7 @@ python preprocess.py -c config/fb15k237_ind.yaml --version v1
 
 
 python main.py -c config/fb15k237_ind.yaml -v v1 --grpo-weight 0.2
-python main.py -c config/fb15k237_ind.yaml -v v1 --mkgl-checkpoint "/content/drive/MyDrive/MKGL_Results/checkpoint-132" --eval-only --log-eval-details
+python main.py -c config/fb15k237_ind.yaml -v v1 --mkgl-checkpoint "/content/drive/MyDrive/MKGL_Results/checkpoint-132" --eval-only --log-eval-details --log-pruning-stats
 
 
   100%|██████████████████████████████████████████████████████████████| 264/264 [46:07<00:00, 10.14s/it]{'mr': 300.97657213316893, 'mrr': 0.3273958766650277, 'hits@1': 0.2466091245376079, 'hits@3': 0.3871763255240444, 'hits@10': 0.46115906288532676}

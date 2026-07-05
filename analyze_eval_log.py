@@ -54,6 +54,26 @@ def main(path):
     df["bucket"] = pd.cut(df["rank"], bins=bins, labels=labels)
     print(df["bucket"].value_counts().reindex(labels))
 
+    # Pruning-visibility stats (only present if run with --log-pruning-stats)
+    if "gold_reached_by_propagation" in df.columns:
+        print("\n=== Pruning visibility (was the gold candidate ever reached?) ===")
+        print(df["gold_reached_by_propagation"].value_counts())
+
+        print("\n--- Hits@1 conditioned on whether gold was reached ---")
+        print(df.groupby("gold_reached_by_propagation").agg(
+            n=("correct", "size"),
+            hits1=("correct", "mean"),
+            mean_rank=("rank", "mean"),
+        ))
+
+        print("\n--- Relations where gold is most often pruned out entirely ---")
+        never_reached = (~df["gold_reached_by_propagation"])
+        by_rel = df.assign(never_reached=never_reached).groupby("relation").agg(
+            n=("never_reached", "size"),
+            pct_never_reached=("never_reached", "mean"),
+        ).query("n >= 10").sort_values("pct_never_reached", ascending=False).head(10)
+        print(by_rel)
+
 
 if __name__ == "__main__":
     main(sys.argv[1] if len(sys.argv) > 1 else "eval_details.jsonl")
