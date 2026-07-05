@@ -1,3 +1,5 @@
+import os
+import json
 import numpy as np
 import pandas as pd
 from contextlib import contextmanager
@@ -282,7 +284,14 @@ class KGL4KGC(nn.Module):
             getattr(config, "grpo_positive_reward", 1.0))
         self.grpo_negative_reward = float(
             getattr(config, "grpo_negative_reward", 0.0))
-        
+
+        # --- eval logging state ---
+        self.log_eval_details = False
+        self.eval_log_topk = 10
+        self._eval_log_file = None
+        self._entity_names = None
+        self._relation_names = None
+
         train_set, valid_set, test_set = dataset.kgdata.split()
         self.preprocess(train_set, valid_set, test_set)
 
@@ -299,6 +308,96 @@ class KGL4KGC(nn.Module):
         return bool(getattr(inner_model, "diffusion_train_only", False))
 
     
+    # ------------------------------------------------------------------
+    # Eval-detail logging: dumps, for every test triple, the filtered
+    # score distribution over candidate entities and the entity the
+    # model actually picked, so you can inspect failure modes.
+    # ------------------------------------------------------------------
+    def enable_eval_logging(self, path, topk=10):
+        parent = os.path.dirname(path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+
+        self._eval_log_file = open(path, "w")
+        self.eval_log_topk = topk
+        self.log_eval_details = True
+
+        if self._entity_names is None:
+            kgdata = self.dataset.kgdata
+
+            # transductive KG
+            if hasattr(kgdata, "entity_vocab"):
+                entity_vocab = kgdata.entity_vocab
+
+            # inductive KG
+            else:
+                entity_vocab = list(kgdata.transductive_vocab) + \
+                            list(kgdata.inductive_vocab)
+
+            self._entity_names = np.array(entity_vocab)
+            self._relation_names = np.array(kgdata.relation_vocab)
+
+    def disable_eval_logging(self):
+        self.log_eval_details = False
+        if self._eval_log_file is not None:
+            self._eval_log_file.close()
+            self._eval_log_file = None
+
+    def _log_eval_batch(self, batch, pred, mask, target, ranking):
+        k = min(self.eval_log_topk, pred.shape[-1])
+        batch_size = len(batch.h_id)
+
+        # Build a "filtered" probability distribution: mask out all other
+        # known-true candidates (as in the ranking protocol) but keep the
+        # gold answer visible, then softmax over what's left. This is only
+        # for inspection/visualization -- the model itself is trained with
+        # independent per-candidate BCE, not a joint softmax.
+        display_mask = mask.clone()
+        display_mask[torch.arange(len(target), device=pred.device), target] = True
+        masked_scores = pred.masked_fill(~display_mask, float("-inf"))
+        probs = F.softmax(masked_scores, dim=-1)
+        topk_probs, topk_ids = probs.topk(k, dim=-1)
+
+        h_names = self._entity_names[batch.h_id.cpu().numpy()]
+        t_names = self._entity_names[batch.t_id.cpu().numpy()]
+        r_names = self._relation_names[batch.r_id.cpu().numpy()]
+
+        def make_record(i, task_name, query_name, rel_name, true_name, true_id):
+            top_ids = topk_ids[i].cpu().tolist()
+            top_probs = topk_probs[i].cpu().tolist()
+            return {
+                "task": task_name,               # "tail_prediction" or "head_prediction"
+                "query_entity": str(query_name),
+                "relation": str(rel_name),
+                "true_entity": str(true_name),
+                "true_entity_id": int(true_id),
+                "rank": int(ranking[i].item()),
+                "predicted_entity": str(self._entity_names[top_ids[0]]),
+                "predicted_entity_id": int(top_ids[0]),
+                "predicted_prob": float(top_probs[0]),
+                "correct": bool(top_ids[0] == int(true_id)),
+                "topk": [
+                    {"entity": str(self._entity_names[eid]), "id": int(eid), "prob": float(p)}
+                    for eid, p in zip(top_ids, top_probs)
+                ],
+            }
+
+        for i in range(batch_size):
+            record = make_record(
+                i, "tail_prediction", h_names[i], r_names[i],
+                t_names[i], batch.t_id[i].item(),
+            )
+            self._eval_log_file.write(json.dumps(record) + "\n")
+
+        for i in range(batch_size):
+            record = make_record(
+                batch_size + i, "head_prediction", t_names[i], r_names[i],
+                h_names[i], batch.h_id[i].item(),
+            )
+            self._eval_log_file.write(json.dumps(record) + "\n")
+
+        self._eval_log_file.flush()
+
     def grpo_loss(self, pred, target):
         temperature = max(self.grpo_temperature, 1e-6)
         rewards = torch.where(
@@ -327,8 +426,29 @@ class KGL4KGC(nn.Module):
         else:
             neg_weight[:, 1:] = 1 / self.num_negative
         loss = (loss * neg_weight).sum(dim=-1) / neg_weight.sum(dim=-1)
+                # -----------------------------
+        # BCE loss
+        # -----------------------------
         loss_D = loss.mean()
-        total_loss = loss_D
+
+        # -----------------------------
+        # Margin ranking loss
+        # -----------------------------
+        pos_score = pred[:, :1]
+        neg_score = pred[:, 1:]
+
+        margin = 1.0
+
+        margin_loss = F.relu(
+            margin - pos_score + neg_score
+        ).mean()
+
+        # -----------------------------
+        # Final loss
+        # -----------------------------
+        total_loss = loss_D + 0.5 * margin_loss
+
+        metric["margin_loss"] = margin_loss.item()
         loss_grpo = None
 
         if self.training and self.grpo_weight > 0:
@@ -366,8 +486,12 @@ class KGL4KGC(nn.Module):
                 }
                 return loss_G, metric
             
-            target = torch.zeros_like(pred)
-            target[:, 0] = 1
+            target = torch.full_like(
+                pred,
+                0.1 / self.num_negative
+            )
+
+            target[:, 0] = 0.9
             
             return self.loss(pred, target, all_loss=all_loss, loss_G=loss_G)
         
@@ -380,6 +504,10 @@ class KGL4KGC(nn.Module):
                 pos_pred = pred.gather(-1, target.unsqueeze(-1))
                 # filter rank
                 ranking = torch.sum((pos_pred <= pred) & mask, dim=-1) + 1
+
+                if self.log_eval_details:
+                    self._log_eval_batch(batch, pred, mask, target, ranking)
+
                 return loss, ranking.to(device)
         
     
@@ -574,4 +702,3 @@ class KGL4IndKGC(KGL4KGC):
 
     def get_eval_graph(self, batch):
         return self.inductive_graph if batch.split == "test" else self.graph
-

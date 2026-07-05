@@ -20,8 +20,8 @@ export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
 pip install numpy scipy
 
-pip install --no-index --find-links=pyg_wheels \
-torch-scatter torch-sparse torch-cluster torch-spline-conv
+pip install torch-scatter torch-sparse torch-cluster torch-spline-conv \
+-f https://data.pyg.org/whl/torch-2.0.1+cu117.html
 
 
 pip install pandas swifter easydict pyyaml sentencepiece cffi==1.15.1 lmdb==1.4.1
@@ -34,3 +34,17 @@ pip install torchdrug
 
 python scripts/build_clip_features.py --fp16 --batch-size 32 --num-urls-per-entity 1
 python preprocess.py -c config/fb15k237_ind.yaml --version v1
+
+
+python main.py -c config/fb15k237_ind.yaml -v v1 --grpo-weight 0.2
+python main.py -c config/fb15k237_ind.yaml -v v1 --mkgl-checkpoint "/content/drive/MyDrive/MKGL_Results/checkpoint-132" --eval-only --log-eval-details
+
+
+  100%|██████████████████████████████████████████████████████████████| 264/264 [46:07<00:00, 10.14s/it]{'mr': 300.97657213316893, 'mrr': 0.3273958766650277, 'hits@1': 0.2466091245376079, 'hits@3': 0.3871763255240444, 'hits@10': 0.46115906288532676}
+03:44:28   Summary name eval/hits@1 is illegal; using eval/hits_1 instead.
+03:44:28   Summary name eval/hits@3 is illegal; using eval/hits_3 instead.
+03:44:28   Summary name eval/hits@10 is illegal; using eval/hits_10 instead.
+{'eval_loss': 0.7101063132286072, 'eval_mr': 300.97657213316893, 'eval_mrr': 0.3273958766650277, 'eval_hits@1': 0.2466091245376079, 'eval_hits@3': 0.3871763255240444, 'eval_hits@10': 0.46115906288532676, 'eval_runtime': 66.4333, 'eval_samples_per_second': 6.187, 'eval_steps_per_second': 0.391, 'epoch': 1.99}
+{'train_runtime': 2834.1936, 'train_samples_per_second': 2.996, 'train_steps_per_second': 0.093, 'train_loss': 0.5906019644303755, 'epoch': 1.99}                                                          
+100%|██████████████████████████████████████████████████████████████| 264/264 [47:14<00:00, 10.74s/it]
+Saved checkpoint to outputs/fb15k237_ind/mkgl_checkpoint.pt

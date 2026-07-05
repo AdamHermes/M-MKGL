@@ -292,6 +292,16 @@ if __name__ == "__main__":
                         help="Weight for the group-relative policy objective during first-stage training.")
     parser.add_argument("--grpo-temperature", type=float, default=None,
                         help="Softmax temperature for the group-relative policy objective.")
+    parser.add_argument("--log-eval-details", action="store_true",
+                        help="Dump per-triple eval predictions (top-k candidate probabilities, "
+                             "chosen entity, rank) to a jsonl file.")
+    parser.add_argument("--eval-log-path", type=str, default=None,
+                        help="Where to write the eval-details jsonl. Defaults to "
+                             "<output_dir>/eval_details.jsonl.")
+    parser.add_argument("--eval-log-topk", type=int, default=10,
+                        help="How many top candidate entities to record per triple.")
+    parser.add_argument("--eval-only", action="store_true",
+                        help="Skip training; just run (and optionally log) evaluation on the test set.")
     args = parser.parse_args()
     
     with open(args.config, "r") as f:
@@ -379,11 +389,20 @@ if __name__ == "__main__":
         or default_diffusion_checkpoint
     )
 
-    if diffusion_enabled and diffusion_mode == "denoiser":
+    # if diffusion_enabled and diffusion_mode == "denoiser":
+    #     if comm.get_rank() == 0:
+    #         print("Stage 2 diffusion denoiser training enabled.")
+    #         print("Loading frozen MKGL checkpoint from %s" % mkgl_checkpoint_path)
+    #     load_component_checkpoint(model, mkgl_checkpoint_path, required=True)
+    if args.mkgl_checkpoint is not None:
         if comm.get_rank() == 0:
-            print("Stage 2 diffusion denoiser training enabled.")
-            print("Loading frozen MKGL checkpoint from %s" % mkgl_checkpoint_path)
-        load_component_checkpoint(model, mkgl_checkpoint_path, required=True)
+            print("Loading MKGL checkpoint from %s" % mkgl_checkpoint_path)
+
+        load_component_checkpoint(
+            model,
+            mkgl_checkpoint_path,
+            required=True
+        )
 
     if diffusion_enabled:
         if hasattr(dataset.kgdata, "inductive_vocab"):
@@ -460,9 +479,29 @@ if __name__ == "__main__":
         data_collator=data_loader,
         compute_metrics=compute_metrics
     )
+    eval_log_path = args.eval_log_path or os.path.join(
+        cfg.trainer.output_dir, "eval_details.jsonl")
+
     if not (diffusion_enabled and diffusion_mode == "denoiser"):
         trainer.evaluate()
+
+    if args.eval_only:
+        if args.log_eval_details:
+            if comm.get_rank() == 0:
+                print("Logging detailed eval predictions to %s" % eval_log_path)
+            task.enable_eval_logging(eval_log_path, topk=args.eval_log_topk)
+            trainer.evaluate()
+            task.disable_eval_logging()
+        sys.exit(0)
+
     trainer.train()
+
+    if args.log_eval_details:
+        if comm.get_rank() == 0:
+            print("Logging detailed eval predictions to %s" % eval_log_path)
+        task.enable_eval_logging(eval_log_path, topk=args.eval_log_topk)
+        trainer.evaluate()
+        task.disable_eval_logging()
 
     if diffusion_enabled:
         save_component_checkpoint(

@@ -1,0 +1,279 @@
+(mkgl) /content/M-MKGL# python main.py \
+  -c config/fb15k237_ind.yaml \
+  --enable-diffusion \
+  --diffusion-mode denoiser \
+  --learning-rate 2e-5
+
+                                                   'class': 'PNALayer',
+                                                   'dependent': True,
+                                                   'input_dim': 32,
+                                                   'layer_norm': True,
+                                                   'message_func': 'distmult',
+                                                   'output_dim': 32,
+                                                   'query_input_dim': 32},
+                                    'class': 'ConditionedPNA',
+                                    'node_ratio': 1,
+                                    'num_layer': 6},
+                     'llm_hidden_dim': 2048,
+                     'r': 32,
+                     'text_encoder': 'pna'},
+ 'tokenizer': {'add_eos_token': False,
+               'pretrained_model_name_or_path': 'TinyLlama/TinyLlama-1.1B-Chat-v1.0',
+               'use_fast': False},
+ 'trainer': {'bf16': False,
+             'ddp_find_unused_parameters': True,
+             'eval_accumulation_steps': 64,
+             'evaluation_strategy': 'epoch',
+             'gradient_accumulation_steps': 4,
+             'label_names': ['label'],
+             'learning_rate': 2e-05,
+             'logging_steps': 5,
+             'logging_strategy': 'steps',
+             'max_grad_norm': 1.0,
+             'num_train_epochs': 2,
+             'optim': 'adamw_8bit',
+             'output_dir': 'outputs/fb15k237_ind',
+             'per_device_eval_batch_size': 16,
+             'per_device_train_batch_size': 8,
+             'remove_unused_columns': False,
+             'report_to': ['tensorboard'],
+             'save_safetensors': False,
+             'save_strategy': 'no',
+             'save_total_limit': 1,
+             'warmup_steps': 50}}
+##########Load dataset from data/preprocessed/fb15k237_ind.pkl############
+You are using a model of type llama to instantiate a model of type mkgl_config. This is not supported for all configurations of models and can yield errors.
+Loaded image features from data/image_features/fb15k237_clip.pt
+{'kgl_vocab_size': 3047, 'matched_entities': 2687, 'entities_with_images': 1062, 'missing_entities': 0, 'feature_dim': 512}
+Stage 2 diffusion denoiser training enabled.
+Loading frozen MKGL checkpoint from outputs/fb15k237_ind/mkgl_checkpoint.pt
+Loaded checkpoint from outputs/fb15k237_ind/mkgl_checkpoint.pt
+{'loaded_tensors': 150, 'missing_keys': 201, 'unexpected_keys': 0}
+Frozen MKGL/LoRA/retriever parameters; only diffusion parameters remain trainable.
+trainable params: 5,310,523 || all params: 1,112,631,004 || trainable%: 0.47729417757623444
+None
+{'trainable_parameters': 5310523, 'frozen_parameters': 1107320481, 'num_trainable_tensors': 21}
+Trainable parameter names:
+  base_model.model.diffusion.denoiser.input_proj.weight (816128)
+  base_model.model.diffusion.denoiser.input_proj.bias (512)
+  base_model.model.diffusion.denoiser.time_embed.0.weight (262144)
+  base_model.model.diffusion.denoiser.time_embed.0.bias (512)
+  base_model.model.diffusion.denoiser.time_embed.2.weight (262144)
+  base_model.model.diffusion.denoiser.time_embed.2.bias (512)
+  base_model.model.diffusion.denoiser.condition_proj.weight (2097152)
+  base_model.model.diffusion.denoiser.condition_proj.bias (512)
+  base_model.model.diffusion.denoiser.blocks.0.alpha (1)
+  base_model.model.diffusion.denoiser.blocks.0.norm1.weight (512)
+  base_model.model.diffusion.denoiser.blocks.0.norm1.bias (512)
+  base_model.model.diffusion.denoiser.blocks.0.norm2.weight (512)
+  base_model.model.diffusion.denoiser.blocks.0.norm2.bias (512)
+  base_model.model.diffusion.denoiser.blocks.0.mlp.0.weight (524288)
+  base_model.model.diffusion.denoiser.blocks.0.mlp.0.bias (1024)
+  base_model.model.diffusion.denoiser.blocks.0.mlp.2.weight (524288)
+  base_model.model.diffusion.denoiser.blocks.0.mlp.2.bias (512)
+  base_model.model.diffusion.denoiser.output_proj.0.weight (512)
+  base_model.model.diffusion.denoiser.output_proj.0.bias (512)
+  base_model.model.diffusion.denoiser.output_proj.1.weight (816128)
+  ... 1 more
+PeftModel(
+  (base_model): LoraModel(
+    (model): MKGL(
+      (model): LlamaModel(
+        (embed_tokens): Embedding(32000, 2048)
+        (layers): ModuleList(
+          (0-21): 22 x LlamaDecoderLayer(
+            (self_attn): LlamaAttention(
+              (q_proj): lora.Linear(
+
+        (image_down_scaling): Linear(in_features=512, out_features=32, bias=False)
+        (image_gate): Linear(in_features=65, out_features=32, bias=True)
+        (up_scaling): Linear(in_features=32, out_features=2048, bias=False)
+      )
+      (score_retriever): ScoreRetriever(
+        (down_scaling): Linear(in_features=2048, out_features=32, bias=False)
+        (re_scaling): Linear(in_features=384, out_features=32, bias=True)
+        (image_down_scaling): Linear(in_features=512, out_features=32, bias=False)
+        (image_gate): Linear(in_features=65, out_features=32, bias=True)
+        (kg_retriever): ConditionedPNA(
+          (layers): ModuleList(
+            (0-5): 6 x PNALayer(
+              (layer_norm): LayerNorm((32,), eps=1e-05, elementwise_affine=True)
+              (linear): Linear(in_features=416, out_features=32, bias=True)
+              (relation_linear): Linear(in_features=32, out_features=11520, bias=True)
+            )
+          )
+          (mlp): MultiLayerPerceptron(
+            (layers): ModuleList(
+              (0): Linear(in_features=32, out_features=64, bias=True)
+              (1): Linear(in_features=64, out_features=1, bias=True)
+            )
+          )
+          (rel_embedding): Embedding(360, 32)
+          (linear): Linear(in_features=64, out_features=32, bias=True)
+        )
+        (h_down_scaling): Linear(in_features=2048, out_features=32, bias=False)
+        (r_down_scaling): Linear(in_features=2048, out_features=32, bias=False)
+      )
+      (diffusion): KGDiffusion(
+        (denoiser): CDenoiser(
+          (input_proj): Linear(in_features=1594, out_features=512, bias=True)
+          (time_embed): Sequential(
+            (0): Linear(in_features=512, out_features=512, bias=True)
+            (1): SiLU()
+            (2): Linear(in_features=512, out_features=512, bias=True)
+          )
+          (condition_proj): Linear(in_features=4096, out_features=512, bias=True)
+          (blocks): ModuleList(
+            (0): CDenoiserBlock(
+              (norm1): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+              (norm2): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+              (mlp): Sequential(
+                (0): Linear(in_features=512, out_features=1024, bias=True)
+                (1): GELU(approximate='none')
+                (2): Linear(in_features=1024, out_features=512, bias=True)
+              )
+            )
+          )
+          (output_proj): Sequential(
+            (0): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+            (1): Linear(in_features=512, out_features=1594, bias=True)
+          )
+        )
+      )
+    )
+  )
+)
+TrainingArguments(
+_n_gpu=1,
+adafactor=False,
+adam_beta1=0.9,
+adam_beta2=0.999,
+adam_epsilon=1e-08,
+auto_find_batch_size=False,
+bf16=False,
+bf16_full_eval=False,
+data_seed=None,
+dataloader_drop_last=False,
+dataloader_num_workers=0,
+dataloader_persistent_workers=False,
+dataloader_pin_memory=True,
+ddp_backend=None,
+ddp_broadcast_buffers=None,
+ddp_bucket_cap_mb=None,
+ddp_find_unused_parameters=True,
+ddp_timeout=1800,
+debug=[],
+deepspeed=None,
+
+per_device_train_batch_size=8,
+prediction_loss_only=False,
+push_to_hub=False,
+push_to_hub_model_id=None,
+push_to_hub_organization=None,
+push_to_hub_token=<PUSH_TO_HUB_TOKEN>,
+ray_scope=last,
+remove_unused_columns=False,
+report_to=['tensorboard'],
+resume_from_checkpoint=None,
+run_name=outputs/fb15k237_ind,
+save_on_each_node=False,
+save_only_model=False,
+save_safetensors=False,
+save_steps=500,
+save_strategy=no,
+save_total_limit=1,
+seed=42,
+skip_memory_metrics=True,
+split_batches=False,
+tf32=None,
+torch_compile=False,
+torch_compile_backend=None,
+torch_compile_mode=None,
+torchdynamo=None,
+tpu_metrics_debug=False,
+tpu_num_cores=None,
+use_cpu=False,
+use_ipex=False,
+use_legacy_prediction_loop=False,
+use_mps_device=False,
+warmup_ratio=0.0,
+warmup_steps=50,
+weight_decay=0.0,
+)
+{'loss': 1.3402, 'learning_rate': 2.0000000000000003e-06, 'epoch': 0.04}                             
+{'loss': 1.3326, 'learning_rate': 4.000000000000001e-06, 'epoch': 0.08}                              
+{'loss': 1.3332, 'learning_rate': 6e-06, 'epoch': 0.11}                                              
+{'loss': 1.3275, 'learning_rate': 8.000000000000001e-06, 'epoch': 0.15}                              
+{'loss': 1.3237, 'learning_rate': 1e-05, 'epoch': 0.19}                                              
+{'loss': 1.3195, 'learning_rate': 1.2e-05, 'epoch': 0.23}                                            
+{'loss': 1.3151, 'learning_rate': 1.4e-05, 'epoch': 0.26}                                            
+{'loss': 1.3037, 'learning_rate': 1.6000000000000003e-05, 'epoch': 0.3}                              
+{'loss': 1.3045, 'learning_rate': 1.8e-05, 'epoch': 0.34}                                            
+{'loss': 1.2873, 'learning_rate': 2e-05, 'epoch': 0.38}                                              
+{'loss': 1.2827, 'learning_rate': 1.9532710280373836e-05, 'epoch': 0.41}                             
+{'loss': 1.2704, 'learning_rate': 1.9065420560747666e-05, 'epoch': 0.45}                             
+{'loss': 1.2567, 'learning_rate': 1.8598130841121497e-05, 'epoch': 0.49}                             
+{'loss': 1.2503, 'learning_rate': 1.8130841121495328e-05, 'epoch': 0.53}                             
+{'loss': 1.2373, 'learning_rate': 1.766355140186916e-05, 'epoch': 0.56}                              
+{'loss': 1.2271, 'learning_rate': 1.7196261682242992e-05, 'epoch': 0.6}                              
+{'loss': 1.211, 'learning_rate': 1.6728971962616823e-05, 'epoch': 0.64}                              
+{'loss': 1.1989, 'learning_rate': 1.6261682242990654e-05, 'epoch': 0.68}                             
+{'loss': 1.2006, 'learning_rate': 1.5794392523364488e-05, 'epoch': 0.72}                             
+{'loss': 1.1902, 'learning_rate': 1.5327102803738318e-05, 'epoch': 0.75}                             
+{'loss': 1.1721, 'learning_rate': 1.485981308411215e-05, 'epoch': 0.79}                              
+{'loss': 1.1732, 'learning_rate': 1.4392523364485981e-05, 'epoch': 0.83}                             
+{'loss': 1.1655, 'learning_rate': 1.3925233644859815e-05, 'epoch': 0.87}                             
+{'loss': 1.1577, 'learning_rate': 1.3457943925233646e-05, 'epoch': 0.9}                              
+{'loss': 1.1528, 'learning_rate': 1.2990654205607478e-05, 'epoch': 0.94}                             
+{'loss': 1.1483, 'learning_rate': 1.2523364485981309e-05, 'epoch': 0.98}                             
+ 50%|███████████████████████████████                               | 132/264 [12:12<12:05,  5.50s/it]/root/miniconda3/envs/mkgl/lib/python3.8/site-packages/torch/functional.py:504: UserWarning: torch.meshgrid: in an upcoming release, it will be required to pass the indexing argument. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3483.)
+  return _VF.meshgrid(tensors, **kwargs)  # type: ignore[attr-defined]
+                                                                                                     {'mr': 561.5782983970407, 'mrr': 0.005744593799546595, 'hits@1': 0.0, 'hits@3': 0.0012330456226880395, 'hits@10': 0.004932182490752158}
+03:59:48   Summary name eval/hits@1 is illegal; using eval/hits_1 instead.
+03:59:48   Summary name eval/hits@3 is illegal; using eval/hits_3 instead.
+03:59:48   Summary name eval/hits@10 is illegal; using eval/hits_10 instead.
+{'eval_loss': 5153.923828125, 'eval_mr': 561.5782983970407, 'eval_mrr': 0.005744593799546595, 'eval_hits@1': 0.0, 'eval_hits@3': 0.0012330456226880395, 'eval_hits@10': 0.004932182490752158, 'eval_runtime': 67.7895, 'eval_samples_per_second': 6.063, 'eval_steps_per_second': 0.384, 'epoch': 0.99}
+{'loss': 1.1485, 'learning_rate': 1.2056074766355141e-05, 'epoch': 1.02}    
+
+
+
+GRPO training
+{'loss': 0.4097, 'learning_rate': 2.2897196261682244e-05, 'epoch': 1.62}                              
+{'loss': 0.445, 'learning_rate': 2.05607476635514e-05, 'epoch': 1.66}                                 
+{'loss': 0.4623, 'learning_rate': 1.822429906542056e-05, 'epoch': 1.69}                               
+{'loss': 0.5199, 'learning_rate': 1.588785046728972e-05, 'epoch': 1.73}                               
+{'loss': 0.4698, 'learning_rate': 1.3551401869158877e-05, 'epoch': 1.77}                              
+ 91%|█████████████████████████████████████████████████████████      | 239/264 [4 91%|████████████████████████████████████▎   | 240/264 [41:45<04:02, 10.11s/it] {'loss': 0.4892, 'learning_rate': 1.1214953271028037e-05, 'epoch': 1.81}       
+{'loss': 0.4219, 'learning_rate': 8.878504672897196e-06, 'epoch': 1.85}                               
+{'loss': 0.4524, 'learning_rate': 6.542056074766355e-06, 'epoch': 1.88}                               
+{'loss': 0.455, 'learning_rate': 4.205607476635514e-06, 'epoch': 1.92}                                
+{'loss': 0.4363, 'learning_rate': 1.8691588785046728e-06, 'epoch': 1.96}                              
+100%|███████████████████████████████████████████████████████████████| 264/264 [45:52<00:00, 10.11s/it]{'mr': 308.8187422934649, 'mrr': 0.33297216156674636, 'hits@1': 0.2589395807644883, 'hits@3': 0.376078914919852, 'hits@10': 0.46609124537607893}
+04:34:57   Summary name eval/hits@1 is illegal; using eval/hits_1 instead.
+04:34:57   Summary name eval/hits@3 is illegal; using eval/hits_3 instead.
+04:34:57   Summary name eval/hits@10 is illegal; using eval/hits_10 instead.
+{'eval_loss': 1.1681053638458252, 'eval_mr': 308.8187422934649, 'eval_mrr': 0.33297216156674636, 'eval_hits@1': 0.2589395807644883, 'eval_hits@3': 0.376078914919852, 'eval_hits@10': 0.46609124537607893, 'eval_runtime': 66.2851, 'eval_samples_per_second': 6.2, 'eval_steps_per_second': 0.392, 'epoch': 1.99}
+{'train_runtime': 2818.3386, 'train_samples_per_second': 3.012, 'train_steps_per_second': 0.094, 'train_loss': 0.5223482350508372, 'epoch': 1.99}                                                            
+100%|███████████████████████████████████████████████████████████████| 264/264 [46:58<00:00, 10.68s/it]
+Saved checkpoint to outputs/fb15k237_ind_v1/mkgl_checkpoint.pt
+
+
+
+
+Baseline run
+_name 45%|████████████████████████████████▏                                  45%|█████████████▉                 | 119/264 [17:14<20:02,  8.29s/it] {'loss': 0.5569, 'learning_rate': 0.00308411214953271, 'epoch': 0.99} 
+ 50%|███████████████▌               | 132/264 [19:09<18:54,  8.59s/it]/root/miniconda3/envs/mkgl/lib/python3.8/site-packages/torch/functional.py:504: UserWarning: torch.meshgrid: in an upcoming release, it will be required to pass the indexing argument. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3483.)
+  return _VF.meshgrid(tensors, **kwargs)  # type: ignore[attr-defined]
+                                                                      {'mr': 147.23396226415093, 'mrr': 0.456506974517539, 'hits@1': 0.3635220125786163, 'hits@3': 0.5081761006289308, 'hits@10': 0.6188679245283019}
+05:51:21   Summary name eval/hits@1 is illegal; using eval/hits_1 instead.
+05:51:21   Summary name eval/hits@3 is illegal; using eval/hits_3 instead.
+05:51:21   Summary name eval/hits@10 is illegal; using eval/hits_10 instead.
+{'eval_loss': 1.979395866394043, 'eval_mr': 147.23396226415093, 'eval_mrr': 0.456506974517539, 'eval_hits@1': 0.3635220125786163, 'eval_hits@3': 0.5081761006289308, 'eval_hits@10': 0.6188679245283019, 'eval_runtime': 54.9596, 'eval_samples_per_second': 7.478, 'eval_steps_per_second': 0.237, 'epoch': 0.99}
+{'loss': 0.4533, 'learning_rate': 0.0, 'epoch': 1.99}                 
+100%|███████████████████████████████| 264/264 [38:34<00:00,  8.34s/it]{'mr': 159.2754716981132, 'mrr': 0.458105848949666, 'hits@1': 0.3622641509433962, 'hits@3': 0.5245283018867924, 'hits@10': 0.6150943396226415}
+06:10:45   Summary name eval/hits@1 is illegal; using eval/hits_1 instead.
+06:10:45   Summary name eval/hits@3 is illegal; using eval/hits_3 instead.
+06:10:45   Summary name eval/hits@10 is illegal; using eval/hits_10 instead.
+{'eval_loss': 2.665010452270508, 'eval_mr': 159.2754716981132, 'eval_mrr': 0.458105848949666, 'eval_hits@1': 0.3622641509433962, 'eval_hits@3': 0.5245283018867924, 'eval_hits@10': 0.6150943396226415, 'eval_runtime': 54.8189, 'eval_samples_per_second': 7.497, 'eval_steps_per_second': 0.237, 'epoch': 1.99}
+{'train_runtime': 2368.8922, 'train_samples_per_second': 3.584, 'train_steps_per_second': 0.111, 'train_loss': 0.5050850348039106, 'epoch': 1.99}
+100%|███████████████████████████████| 264/264 [39:28<00:00,  8.97s/it]
