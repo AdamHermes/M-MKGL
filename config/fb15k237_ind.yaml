@@ -115,7 +115,7 @@ score_retriever:
   kg_encoder:
     class: ConditionedPNA
     base_layer:
-      class: PNALayer
+      class: QualifierAwareLayer
       input_dim: *r
       output_dim: *r
       query_input_dim: *r
@@ -125,4 +125,6 @@ score_retriever:
       dependent: yes
     num_layer: 6
     node_ratio: 1
-    
+    scorer_type: dual_branch
+    qualifier_dim: *r
+

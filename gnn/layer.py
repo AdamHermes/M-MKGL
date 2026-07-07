@@ -107,3 +107,43 @@ class PNALayer(layers.MessagePassingBase, core.Configurable):
         if self.activation:
             output = self.activation(output)
         return output
+
+@R.register("layer.QualifierAwareLayer")
+class QualifierAwareLayer(PNALayer):
+    """Extends PNALayer with qualifier-enriched relation embeddings."""
+
+    def __init__(self, *args, qualifier_dim=0, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.qualifier_dim = qualifier_dim
+        if qualifier_dim > 0:
+            self.qualifier_proj = nn.Linear(qualifier_dim, self.query_input_dim)
+            self.qualifier_gate = nn.Parameter(torch.tensor(0.5))
+            self.qualifier_norm = nn.LayerNorm(self.query_input_dim)
+        else:
+            self.qualifier_proj = None
+
+    def enrich_query(self, query, qualifier_context):
+        if qualifier_context is None or self.qualifier_proj is None:
+            return query
+        
+        # qualifier_context: (batch, dim)
+        projected = self.qualifier_proj(qualifier_context)
+        alpha = torch.sigmoid(self.qualifier_gate)
+        enriched = alpha * query + (1 - alpha) * projected
+        return self.qualifier_norm(enriched)
+
+    def message_and_aggregate(self, graph, input):
+        qualifier_context = getattr(graph, 'qualifier_context', None)
+        
+        # Temporarily replace query with enriched query
+        original_query = graph.query
+        enriched_query = self.enrich_query(original_query, qualifier_context)
+        
+        with graph.graph():
+            graph.query = enriched_query
+            
+        try:
+            return super().message_and_aggregate(graph, input)
+        finally:
+            with graph.graph():
+                graph.query = original_query

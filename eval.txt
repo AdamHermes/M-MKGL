@@ -1,0 +1,192 @@
+(mkgl) /content/M-MKGL# python analyze_eval_log.py outputs/fb15k237_ind_v1/eval_details.jsonl
+Loaded 822 predictions ({'tail_prediction': 411, 'head_prediction': 411})
+
+=== Overall ===
+                    hits1   mean_rank  median_rank
+task                                              
+head_prediction  0.335766  170.664234          5.0
+tail_prediction  0.381995  163.367397          3.0
+
+=== Hardest relations (tail_prediction, hits@1) ===
+                                                     n     hits1   mean_rank
+relation                                                                    
+/music/genre/artists                                10  0.000000  410.100000
+/people/ethnicity/people                            18  0.000000  221.944444
+/film/actor/film./film/performance/film             15  0.066667  134.133333
+/award/award_category/nominees./award/award_nom...  17  0.117647  137.588235
+/education/educational_institution/school_type      12  0.166667  464.416667
+/film/film/release_date_s./film/film_regional_r...  14  0.357143   28.214286
+/people/person/profession                           15  0.400000  130.466667
+/award/award_nominee/award_nominations./award/a...  19  0.526316   58.315789
+/award/award_nominee/award_nominations./award/a...  11  0.545455  200.727273
+/people/person/places_lived./people/place_lived...  11  0.545455   43.000000
+/film/film/genre                                    20  0.650000  105.950000
+/award/award_winner/awards_won./award/award_hon...  12  0.750000   92.166667
+/award/award_nominee/award_nominations./award/a...  37  0.891892    1.378378
+
+=== Confidently wrong (high predicted_prob, incorrect) ===
+[head_prediction] /m/05sy_5 -[/award/award_category/nominees./award/award_nomination/nominated_for]-> ? true=/m/027dtxw pred=/m/0gq9h (p=0.402, rank=<bound method NDFrame.rank of task                                                             head_prediction
+query_entity                                                           /m/05sy_5
+relation                       /award/award_category/nominees./award/award_no...
+true_entity                                                           /m/027dtxw
+true_entity_id                                                               157
+rank                                                                           2
+predicted_entity                                                        /m/0gq9h
+predicted_entity_id                                                           33
+predicted_prob                                                          0.401636
+correct                                                                    False
+topk                           [{'entity': '/m/0gq9h', 'id': 33, 'prob': 0.40...
+gold_reached_by_propagation                                                 True
+gold_reached_at_layer                                                          2
+Name: 504, dtype: object>)
+[tail_prediction] /m/0dgrwqr -[/film/film/release_date_s./film/film_regional_release_date/film_release_region]-> ? true=/m/04v3q pred=/m/0d060g (p=0.369, rank=<bound method NDFrame.rank of task                                                             tail_prediction
+query_entity                                                          /m/0dgrwqr
+relation                       /film/film/release_date_s./film/film_regional_...
+true_entity                                                             /m/04v3q
+true_entity_id                                                               730
+rank                                                                           5
+predicted_entity                                                       /m/0d060g
+predicted_entity_id                                                            9
+predicted_prob                                                          0.368969
+correct                                                                    False
+topk                           [{'entity': '/m/0d060g', 'id': 9, 'prob': 0.36...
+gold_reached_by_propagation                                                 True
+gold_reached_at_layer                                                          2
+Name: 4, dtype: object>)
+[tail_prediction] /m/06fq2 -[/education/educational_institution/colors]-> ? true=/m/036k5h pred=/m/083jv (p=0.349, rank=<bound method NDFrame.rank of task                                                             tail_prediction
+query_entity                                                            /m/06fq2
+relation                               /education/educational_institution/colors
+true_entity                                                            /m/036k5h
+true_entity_id                                                               363
+rank                                                                           2
+predicted_entity                                                        /m/083jv
+predicted_entity_id                                                            7
+predicted_prob                                                          0.348669
+correct                                                                    False
+topk                           [{'entity': '/m/083jv', 'id': 7, 'prob': 0.348...
+gold_reached_by_propagation                                                 True
+gold_reached_at_layer                                                          2
+Name: 428, dtype: object>)
+
+gold_reached_by_propagation                                                 True
+gold_reached_at_layer                                                          2
+Name: 748, dtype: object>)
+[tail_prediction] /m/01d259 -[/film/film/release_date_s./film/film_regional_release_date/film_release_region]-> ? true=/m/06mzp pred=/m/0d060g (p=0.282, rank=<bound method NDFrame.rank of task                                                             tail_prediction
+query_entity                                                           /m/01d259
+relation                       /film/film/release_date_s./film/film_regional_...
+true_entity                                                             /m/06mzp
+true_entity_id                                                                36
+rank                                                                           2
+predicted_entity                                                       /m/0d060g
+predicted_entity_id                                                            9
+predicted_prob                                                          0.281798
+correct                                                                    False
+topk                           [{'entity': '/m/0d060g', 'id': 9, 'prob': 0.28...
+gold_reached_by_propagation                                                 True
+gold_reached_at_layer                                                          2
+Name: 427, dtype: object>)
+[tail_prediction] /m/024lt6 -[/film/film/release_date_s./film/film_regional_release_date/film_release_region]-> ? true=/m/04v3q pred=/m/0d060g (p=0.247, rank=<bound method NDFrame.rank of task                                                             tail_prediction
+query_entity                                                           /m/024lt6
+relation                       /film/film/release_date_s./film/film_regional_...
+true_entity                                                             /m/04v3q
+true_entity_id                                                               730
+rank                                                                           4
+predicted_entity                                                       /m/0d060g
+predicted_entity_id                                                            9
+predicted_prob                                                          0.247364
+correct                                                                    False
+topk                           [{'entity': '/m/0d060g', 'id': 9, 'prob': 0.24...
+gold_reached_by_propagation                                                 True
+gold_reached_at_layer                                                          2
+Name: 390, dtype: object>)
+[tail_prediction] /m/064nh4k -[/award/award_nominee/award_nominations./award/award_nomination/award_nominee]-> ? true=/m/032q8q pred=/m/05ztm4r (p=0.212, rank=<bound method NDFrame.rank of task                                                             tail_prediction
+query_entity                                                          /m/064nh4k
+relation                       /award/award_nominee/award_nominations./award/...
+true_entity                                                            /m/032q8q
+true_entity_id                                                               782
+rank                                                                           2
+predicted_entity                                                      /m/05ztm4r
+predicted_entity_id                                                           87
+predicted_prob                                                          0.212187
+correct                                                                    False
+topk                           [{'entity': '/m/05ztm4r', 'id': 87, 'prob': 0....
+gold_reached_by_propagation                                                 True
+gold_reached_at_layer                                                          0
+Name: 259, dtype: object>)
+[tail_prediction] /m/03m8y5 -[/film/film/genre]-> ? true=/m/01t_vv pred=/m/02kdv5l (p=0.212, rank=<bound method NDFrame.rank of task                                                             tail_prediction
+query_entity                                                           /m/03m8y5
+relation                                                        /film/film/genre
+true_entity                                                            /m/01t_vv
+true_entity_id                                                               215
+rank                                                                           2
+predicted_entity                                                      /m/02kdv5l
+predicted_entity_id                                                           50
+predicted_prob                                                          0.211695
+correct                                                                    False
+topk                           [{'entity': '/m/02kdv5l', 'id': 50, 'prob': 0....
+gold_reached_by_propagation                                                 True
+gold_reached_at_layer                                                          2
+Name: 11, dtype: object>)
+[tail_prediction] /m/0pd64 -[/film/film/release_date_s./film/film_regional_release_date/film_release_region]-> ? true=/m/02_286 pred=/m/0d060g (p=0.210, rank=<bound method NDFrame.rank of task                                                             tail_prediction
+query_entity                                                            /m/0pd64
+relation                       /film/film/release_date_s./film/film_regional_...
+true_entity                                                            /m/02_286
+true_entity_id                                                                75
+rank                                                                         172
+predicted_entity                                                       /m/0d060g
+predicted_entity_id                                                            9
+predicted_prob                                                          0.210135
+correct                                                                    False
+topk                           [{'entity': '/m/0d060g', 'id': 9, 'prob': 0.21...
+gold_reached_by_propagation                                                 True
+gold_reached_at_layer                                                          2
+Name: 295, dtype: object>)
+[tail_prediction] /m/03xgm3 -[/award/award_nominee/award_nominations./award/award_nomination/award_nominee]-> ? true=/m/01l4zqz pred=/m/011zf2 (p=0.193, rank=<bound method NDFrame.rank of task                                                             tail_prediction
+query_entity                                                           /m/03xgm3
+relation                       /award/award_nominee/award_nominations./award/...
+true_entity                                                           /m/01l4zqz
+true_entity_id                                                               304
+rank                                                                           2
+predicted_entity                                                       /m/011zf2
+predicted_entity_id                                                          387
+predicted_prob                                                          0.192556
+correct                                                                    False
+topk                           [{'entity': '/m/011zf2', 'id': 387, 'prob': 0....
+gold_reached_by_propagation                                                 True
+gold_reached_at_layer                                                          0
+Name: 515, dtype: object>)
+
+=== Rank distribution ===
+bucket
+rank=1       295
+rank<=3      110
+rank<=10     100
+rank<=100     94
+rank>100     223
+Name: count, dtype: int64
+
+=== Pruning visibility (was the gold candidate ever reached?) ===
+gold_reached_by_propagation
+True     768
+False     54
+Name: count, dtype: int64
+
+--- Hits@1 conditioned on whether gold was reached ---
+                               n     hits1   mean_rank
+gold_reached_by_propagation                           
+False                         54  0.000000  696.111111
+True                         768  0.384115  129.813802
+
+--- Relations where gold is most often pruned out entirely ---
+                                                     n  pct_never_reached
+relation                                                                 
+/education/educational_institution/school_type      24           0.416667
+/music/record_label/artist                          14           0.285714
+/education/educational_institution/students_gra...  10           0.200000
+/award/award_nominee/award_nominations./award/a...  22           0.181818
+/education/educational_institution/colors           12           0.166667
+/film/film/featured_film_locations                  12           0.166667
+/people/person/profession                           30           0.133333
+/award/award_winner/awards_won./award/award_hon...  24           0.083333
+/people/ethnicity/people                            36           0.055556
+/film/film/genre                                    40           0.050000

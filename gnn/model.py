@@ -12,6 +12,68 @@ from .util import VirtualTensor, Range, RepeatGraph
 from .util import bincount, variadic_topks
 from .layer import *
 
+
+class DualBranchScorer(nn.Module):
+    """Dual-branch gated scorer replacing the flat DistMult-style scoring.
+
+    Branch 1 (Direct): LN(hidden + rel_embeds) — direct residual fusion
+    Branch 2 (Path):   LN(hidden + FFN([hidden || branch1_out])) — path composition
+    Gate: α = σ(g), fused = α * branch1 + (1-α) * branch2
+    Final: MLP(fused) → scalar score
+
+    Inspired by AlertStar (Eqs. 21-23) from the HR-KGC paper.
+    """
+
+    def __init__(self, hidden_dim, num_mlp_layers=2):
+        super().__init__()
+        # Branch 1: Direct residual fusion
+        self.direct_norm = nn.LayerNorm(hidden_dim)
+
+        # Branch 2: Path-composition FFN
+        self.path_ffn = nn.Sequential(
+            nn.Linear(hidden_dim * 2, hidden_dim),
+            nn.LayerNorm(hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(hidden_dim, hidden_dim),
+        )
+        self.path_norm = nn.LayerNorm(hidden_dim)
+
+        # Trainable scalar gate (σ(0) = 0.5 initially)
+        self.gate = nn.Parameter(torch.tensor(0.0))
+
+        # Final scoring MLP (same structure as existing)
+        feature_dim = hidden_dim * 2
+        hidden_dims = [feature_dim] * (num_mlp_layers - 1) + [1]
+        mlp_layers = []
+        in_dim = hidden_dim
+        for out_dim in hidden_dims:
+            mlp_layers.append(nn.Linear(in_dim, out_dim))
+            if out_dim != 1:  # no activation after final
+                mlp_layers.append(nn.ReLU())
+            in_dim = out_dim
+        self.mlp = nn.Sequential(*mlp_layers)
+
+    def forward(self, hidden, rel_embeds):
+        # Branch 1: direct residual fusion (AlertStar Eq. 21)
+        branch_direct = self.direct_norm(hidden + rel_embeds)
+
+        # Branch 2: path composition (AlertStar Eq. 22)
+        path_input = torch.cat([hidden, branch_direct], dim=-1)
+        branch_path = self.path_norm(hidden + self.path_ffn(path_input))
+
+        # Gated fusion (AlertStar Eq. 23)
+        alpha = torch.sigmoid(self.gate)
+        fused = alpha * branch_direct + (1 - alpha) * branch_path
+
+        return self.mlp(fused).squeeze(-1)
+
+    @property
+    def gate_value(self):
+        """Current gate value α for logging/interpretability."""
+        return torch.sigmoid(self.gate).item()
+
+
 @R.register("PNA")
 class PNA(nn.Module, core.Configurable):
 
@@ -54,7 +116,7 @@ class PNA(nn.Module, core.Configurable):
 class ConditionedPNA(PNA, core.Configurable):
 
     def __init__(self, base_layer, num_layer, num_mlp_layer=2, node_ratio=0.1, degree_ratio=1, test_node_ratio=None, test_degree_ratio=None,
-                 break_tie=False, **kwargs):
+                 break_tie=False, scorer_type='legacy', qualifier_dim=0, **kwargs):
         
         super().__init__(base_layer, num_layer, num_mlp_layer=num_mlp_layer, **kwargs)
 
@@ -63,9 +125,17 @@ class ConditionedPNA(PNA, core.Configurable):
         self.test_node_ratio = test_node_ratio or node_ratio
         self.test_degree_ratio = test_degree_ratio or degree_ratio
         self.break_tie = break_tie
+        self.scorer_type = scorer_type
+        self.qualifier_dim = qualifier_dim
 
         feature_dim = base_layer.output_dim + base_layer.input_dim
         self.rel_embedding = nn.Embedding(base_layer.num_relation * 2, base_layer.input_dim)
+        
+        if scorer_type == 'dual_branch':
+            self.dual_scorer = DualBranchScorer(base_layer.input_dim, num_mlp_layers=num_mlp_layer)
+        else:
+            self.dual_scorer = None
+            
         self.linear = nn.Linear(feature_dim, base_layer.output_dim)
         self.mlp = layers.MLP(base_layer.output_dim, [feature_dim] * (num_mlp_layer - 1) + [1])
 
@@ -116,16 +186,20 @@ class ConditionedPNA(PNA, core.Configurable):
         rel_embeds = rel_embeds.type(hidden_states.dtype) #+ rel_hidden_states
 
         input_embeds, init_score = self.init_input_embeds(graph, hidden_states, h_index[:, 0], score_text_embs, all_index, rel_embeds)
-        score = self.aggregate(graph, h_index[:, 0], r_index[:, 0], input_embeds, rel_embeds, init_score)
+        
+        qualifier_ctx = rel_hidden_states if self.qualifier_dim > 0 else None
+        score = self.aggregate(graph, h_index[:, 0], r_index[:, 0], input_embeds, rel_embeds, init_score, qualifier_context=qualifier_ctx)
         score = score[t_index]
         return score
 
-    def aggregate(self, graph, h_index, r_index, input_embeds, rel_embeds, init_score):
+    def aggregate(self, graph, h_index, r_index, input_embeds, rel_embeds, init_score, qualifier_context=None):
         query = rel_embeds
         boundary, score = input_embeds, init_score
         hidden = boundary.clone()
         with graph.graph():
             graph.query = query
+            if qualifier_context is not None:
+                graph.qualifier_context = qualifier_context
         with graph.node():
             graph.boundary = boundary
             graph.hidden = hidden
@@ -182,10 +256,19 @@ class ConditionedPNA(PNA, core.Configurable):
         return input_embeds, score
 
     def score(self, hidden, rel_embeds):
+        if self.dual_scorer is not None:
+            return self.dual_scorer(hidden, rel_embeds)
         heuristic = self.linear(torch.cat([hidden, rel_embeds], dim=-1))
         x = hidden * heuristic
         score = self.mlp(x).squeeze(-1)
         return score
+
+    @property
+    def gate_value(self):
+        """Returns the dual-branch gate value for logging, or None if legacy scorer."""
+        if self.dual_scorer is not None:
+            return self.dual_scorer.gate_value
+        return None
 
 
     def select_edges(self, graph, score):

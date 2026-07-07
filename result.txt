@@ -277,3 +277,335 @@ _name 45%|███████████████████████�
 {'eval_loss': 2.665010452270508, 'eval_mr': 159.2754716981132, 'eval_mrr': 0.458105848949666, 'eval_hits@1': 0.3622641509433962, 'eval_hits@3': 0.5245283018867924, 'eval_hits@10': 0.6150943396226415, 'eval_runtime': 54.8189, 'eval_samples_per_second': 7.497, 'eval_steps_per_second': 0.237, 'epoch': 1.99}
 {'train_runtime': 2368.8922, 'train_samples_per_second': 3.584, 'train_steps_per_second': 0.111, 'train_loss': 0.5050850348039106, 'epoch': 1.99}
 100%|███████████████████████████████| 264/264 [39:28<00:00,  8.97s/it]
+  
+  Baseline
+  return _VF.meshgrid(tensors, **kwargs)  # type: ignore[attr-defined]
+100%|██████████████████████████████████████████████| 26/26 [00:51<00:00,  2.03s/it]{'mr': 832.4488286066585, 'mrr': 0.010240737260043665, 'hits@1': 0.0036991368680641184, 'hits@3': 0.007398273736128237, 'hits@10': 0.02096177558569667}
+04:37:22   Summary name eval/hits@1 is illegal; using eval/hits_1 instead.
+04:37:22   Summary name eval/hits@3 is illegal; using eval/hits_3 instead.
+04:37:22   Summary name eval/hits@10 is illegal; using eval/hits_10 instead.
+100%|██████████████████████████████████████████████| 26/26 [00:51<00:00,  1.97s/it]
+{'loss': 0.7328, 'learning_rate': 0.0005, 'epoch': 0.04}                           
+{'loss': 0.6677, 'learning_rate': 0.001, 'epoch': 0.08}                            
+{'loss': 0.6291, 'learning_rate': 0.0015, 'epoch': 0.11}                           
+{'loss': 0.5926, 'learning_rate': 0.002, 'epoch': 0.15}                            
+{'loss': 0.6061, 'learning_rate': 0.0025, 'epoch': 0.19}                           
+{'loss': 0.5986, 'learning_rate': 0.003, 'epoch': 0.23}                            
+{'loss': 0.5666, 'learning_rate': 0.0034999999999999996, 'epoch': 0.26}            
+{'loss': 0.5652, 'learning_rate': 0.004, 'epoch': 0.3}                             
+{'loss': 0.5071, 'learning_rate': 0.0045000000000000005, 'epoch': 0.34}            
+{'loss': 0.5652, 'learning_rate': 0.005, 'epoch': 0.38}                            
+{'loss': 0.5559, 'learning_rate': 0.004883177570093458, 'epoch': 0.41}             
+{'loss': 0.6349, 'learning_rate': 0.004766355140186916, 'epoch': 0.45}             
+{'loss': 0.5063, 'learning_rate': 0.004649532710280374, 'epoch': 0.49}             
+{'loss': 0.5871, 'learning_rate': 0.0045327102803738315, 'epoch': 0.53}            
+{'loss': 0.5133, 'learning_rate': 0.00441588785046729, 'epoch': 0.56}              
+{'loss': 0.5375, 'learning_rate': 0.004299065420560748, 'epoch': 0.6}              
+{'loss': 0.5283, 'learning_rate': 0.004182242990654206, 'epoch': 0.64}             
+{'loss': 0.4983, 'learning_rate': 0.004065420560747664, 'epoch': 0.68}             
+{'loss': 0.5205, 'learning_rate': 0.003948598130841122, 'epoch': 0.72}             
+{'loss': 0.5481, 'learning_rate': 0.0038317757009345794, 'epoch': 0.75}            
+{'loss': 0.4813, 'learning_rate': 0.0037149532710280377, 'epoch': 0.79}            
+{'loss': 0.5326, 'learning_rate': 0.003598130841121495, 'epoch': 0.83}             
+{'loss': 0.5164, 'learning_rate': 0.0034813084112149534, 'epoch': 0.87}            
+{'loss': 0.4797, 'learning_rate': 0.0033644859813084112, 'epoch': 0.9}             
+{'loss': 0.5309, 'learning_rate': 0.0032476635514018695, 'epoch': 0.94}            
+{'loss': 0.5003, 'learning_rate': 0.003130841121495327, 'epoch': 0.98}             
+ 50%|██████████████████████                      | 132/264 [18:28<17:33,  7.98s/it]{'mr': 149.32799013563502, 'mrr': 0.4521374575499302, 'hits@1': 0.3625154130702836, 'hits@3': 0.499383477188656, 'hits@10': 0.6152897657213316}
+04:56:51   Summary name eval/hits@1 is illegal; using eval/hits_1 instead.
+04:56:51   Summary name eval/hits@3 is illegal; using eval/hits_3 instead.
+04:56:51   Summary name eval/hits@10 is illegal; using eval/hits_10 instead.
+{'eval_loss': 0.5867190957069397, 'eval_mr': 149.32799013563502, 'eval_mrr': 0.4521374575499302, 'eval_hits@1': 0.3625154130702836, 'eval_hits@3': 0.499383477188656, 'eval_hits@10': 0.6152897657213316, 'eval_runtime': 54.1583, 'eval_samples_per_second': 7.589, 'eval_steps_per_second': 0.48, 'epoch': 0.99}
+{'loss': 0.4439, 'learning_rate': 0.0004439252336448598, 'epoch': 1.85}            
+{'loss': 0.4616, 'learning_rate': 0.0003271028037383177, 'epoch': 1.88}            
+{'loss': 0.4422, 'learning_rate': 0.0002102803738317757, 'epoch': 1.92}            
+{'loss': 0.4323, 'learning_rate': 9.345794392523364e-05, 'epoch': 1.96}            
+100%|████████████████████████████████████████████| 264/264 [37:18<00:00,  8.13s/it]{'mr': 166.05055487053022, 'mrr': 0.4518193770484537, 'hits@1': 0.3625154130702836, 'hits@3': 0.5117139334155364, 'hits@10': 0.594327990135635}
+05:15:36   Summary name eval/hits@1 is illegal; using eval/hits_1 instead.
+05:15:36   Summary name eval/hits@3 is illegal; using eval/hits_3 instead.
+05:15:36   Summary name eval/hits@10 is illegal; using eval/hits_10 instead.
+{'eval_loss': 0.8357064127922058, 'eval_mr': 166.05055487053022, 'eval_mrr': 0.4518193770484537, 'eval_hits@1': 0.3625154130702836, 'eval_hits@3': 0.5117139334155364, 'eval_hits@10': 0.594327990135635, 'eval_runtime': 54.2671, 'eval_samples_per_second': 7.574, 'eval_steps_per_second': 0.479, 'epoch': 1.99}
+{'train_runtime': 2293.0357, 'train_samples_per_second': 3.703, 'train_steps_per_second': 0.115, 'train_loss': 0.5044867071238431, 'epoch': 1.99}                      
+100%|████████████████████████████████████████████| 264/264 [38:13<00:00,  8.69s/it]
+Saved checkpoint to outputs/fb15k237_ind_v1/mkgl_checkpoint.pt  
+
+
+
+
+
+{'loss': 0.4293, 'learning_rate': 0.002429906542056075, 'epoch': 1.21}                     
+{'loss': 0.4778, 'learning_rate': 0.0023130841121495327, 'epoch': 1.24}                    
+{'loss': 0.4709, 'learning_rate': 0.0021962616822429905, 'epoch': 1.28}                    
+{'loss': 0.4459, 'learning_rate': 0.0020794392523364484, 'epoch': 1.32}                    
+{'loss': 0.4741, 'learning_rate': 0.0019626168224299067, 'epoch': 1.36}                    
+{'loss': 0.4791, 'learning_rate': 0.0018457943925233645, 'epoch': 1.39}                    
+{'loss': 0.4715, 'learning_rate': 0.0017289719626168223, 'epoch': 1.43}                    
+{'loss': 0.4774, 'learning_rate': 0.0016121495327102804, 'epoch': 1.47}                    
+{'loss': 0.4521, 'learning_rate': 0.0014953271028037382, 'epoch': 1.51}                    
+{'loss': 0.4521, 'learning_rate': 0.001378504672897196, 'epoch': 1.54}                     
+{'loss': 0.4595, 'learning_rate': 0.0012616822429906542, 'epoch': 1.58}                    
+{'loss': 0.4215, 'learning_rate': 0.0011448598130841122, 'epoch': 1.62}                    
+{'loss': 0.4765, 'learning_rate': 0.00102803738317757, 'epoch': 1.66}                      
+{'loss': 0.46, 'learning_rate': 0.000911214953271028, 'epoch': 1.69}                       
+{'loss': 0.4964, 'learning_rate': 0.000794392523364486, 'epoch': 1.73}                     
+{'loss': 0.4479, 'learning_rate': 0.0006775700934579439, 'epoch': 1.77}                    
+{'loss': 0.433, 'learning_rate': 0.0005607476635514019, 'epoch': 1.81}                     
+{'loss': 0.4601, 'learning_rate': 0.0004439252336448598, 'epoch': 1.85}                    
+{'loss': 0.4678, 'learning_rate': 0.0003271028037383177, 'epoch': 1.88}                    
+{'loss': 0.4493, 'learning_rate': 0.0002102803738317757, 'epoch': 1.92}                    
+{'loss': 0.4364, 'learning_rate': 9.345794392523364e-05, 'epoch': 1.96}                    
+100%|████████████████████████████████████████████████████| 264/264 [37:30<00:00,  8.24s/it]{'mr': 163.7016029593095, 'mrr': 0.479270579983274, 'hits@1': 0.3958076448828607, 'hits@3': 0.5339087546239211, 'hits@10': 0.6091245376078915}
+09:04:32   Summary name eval/hits@1 is illegal; using eval/hits_1 instead.
+09:04:32   Summary name eval/hits@3 is illegal; using eval/hits_3 instead.
+09:04:32   Summary name eval/hits@10 is illegal; using eval/hits_10 instead.
+{'eval_loss': 0.7863415479660034, 'eval_mr': 163.7016029593095, 'eval_mrr': 0.479270579983274, 'eval_hits@1': 0.3958076448828607, 'eval_hits@3': 0.5339087546239211, 'eval_hits@10': 0.6091245376078915, 'eval_runtime': 51.457, 'eval_samples_per_second': 7.987, 'eval_steps_per_second': 0.505, 'epoch': 1.99}
+{'train_runtime': 2302.3765, 'train_samples_per_second': 3.687, 'train_steps_per_second': 0.115, 'train_loss': 0.5228909552097321, 'epoch': 1.99}                                      
+100%|████████████████████████████████████████████████████| 264/264 [38:22<00:00,  8.72s/it]
+Saved checkpoint to outputs/fb15k237_ind_v1/mkgl_checkpoint.pt
+
+
+
+'mr': 832.4488286066585, 'mrr': 0.010240737260043665, 'hits@1': 0.0036991368680641184, 'hits@3': 0.007398273736128237, 'hits@10': 0.02096177558569667}
+09:21:19   Summary name eval/hits@1 is illegal; using eval/hits_1 instead.
+09:21:19   Summary name eval/hits@3 is illegal; using eval/hits_3 instead.
+09:21:19   Summary name eval/hits@10 is illegal; using eval/hits_10 instead.
+100%|██████████████████████████████████████████████████████| 26/26 [00:46<00:00,  1.80s/it]
+{'loss': 0.8068, 'learning_rate': 0.0005, 'epoch': 0.04}                                   
+{'loss': 0.7335, 'learning_rate': 0.001, 'epoch': 0.08}                                    
+{'loss': 0.6504, 'learning_rate': 0.0015, 'epoch': 0.11}                                   
+{'loss': 0.6242, 'learning_rate': 0.002, 'epoch': 0.15}                                    
+{'loss': 0.6066, 'learning_rate': 0.0025, 'epoch': 0.19}                                   
+{'loss': 0.6003, 'learning_rate': 0.003, 'epoch': 0.23}                                    
+{'loss': 0.58, 'learning_rate': 0.0034999999999999996, 'epoch': 0.26}                      
+{'loss': 0.5974, 'learning_rate': 0.004, 'epoch': 0.3}                                     
+{'loss': 0.5635, 'learning_rate': 0.0045000000000000005, 'epoch': 0.34}                    
+{'loss': 0.587, 'learning_rate': 0.005, 'epoch': 0.38}                                     
+{'loss': 0.5554, 'learning_rate': 0.0049277456647398845, 'epoch': 0.41}                    
+{'loss': 0.5637, 'learning_rate': 0.004855491329479769, 'epoch': 0.45}                     
+{'loss': 0.5101, 'learning_rate': 0.004783236994219653, 'epoch': 0.49}                     
+{'loss': 0.5717, 'learning_rate': 0.004710982658959538, 'epoch': 0.53}                     
+{'loss': 0.5714, 'learning_rate': 0.004638728323699422, 'epoch': 0.56}                     
+{'loss': 0.5455, 'learning_rate': 0.004566473988439307, 'epoch': 0.6}                      
+{'loss': 0.5656, 'learning_rate': 0.004494219653179191, 'epoch': 0.64}                     
+{'loss': 0.5275, 'learning_rate': 0.004421965317919075, 'epoch': 0.68}                     
+{'loss': 0.5352, 'learning_rate': 0.00434971098265896, 'epoch': 0.72}                      
+{'loss': 0.5865, 'learning_rate': 0.004277456647398844, 'epoch': 0.75}                     
+{'loss': 0.5238, 'learning_rate': 0.004205202312138729, 'epoch': 0.79}                     
+{'loss': 0.5616, 'learning_rate': 0.004132947976878612, 'epoch': 0.83}                     
+{'loss': 0.5335, 'learning_rate': 0.004060693641618497, 'epoch': 0.87}                     
+{'loss': 0.4868, 'learning_rate': 0.003988439306358382, 'epoch': 0.9}                      
+{'loss': 0.5375, 'learning_rate': 0.003916184971098266, 'epoch': 0.94}                     
+{'loss': 0.5272, 'learning_rate': 0.0038439306358381505, 'epoch': 0.98}                    
+ 33%|█████████████████▎                                  | 132/396 [18:12<35:46,  8.13s/it]{'mr': 147.1023427866831, 'mrr': 0.4706042194252999, 'hits@1': 0.3847102342786683, 'hits@3': 0.5265104808877928, 'hits@10': 0.6115906288532675}
+09:40:29   Summary name eval/hits@1 is illegal; using eval/hits_1 instead.
+09:40:29   Summary name eval/hits@3 is illegal; using eval/hits_3 instead.
+09:40:29   Summary name eval/hits@10 is illegal; using eval/hits_10 instead.
+{'eval_loss': 0.5784147381782532, 'eval_mr': 147.1023427866831, 'eval_mrr': 0.4706042194252999, 'eval_hits@1': 0.3847102342786683, 'eval_hits@3': 0.5265104808877928, 'eval_hits@10': 0.6115906288532675, 'eval_runtime': 51.3337, 'eval_samples_per_second': 8.006, 'eval_steps_per_second': 0.506, 'epoch': 0.99}
+{'loss': 0.448, 'learning_rate': 0.0037716763005780345, 'epoch': 1.02}                     
+{'loss': 0.4861, 'learning_rate': 0.003699421965317919, 'epoch': 1.05}                     
+{'loss': 0.4485, 'learning_rate': 0.003627167630057804, 'epoch': 1.09}                     
+{'loss': 0.4924, 'learning_rate': 0.0035549132947976883, 'epoch': 1.13}                    
+{'loss': 0.5035, 'learning_rate': 0.0034826589595375722, 'epoch': 1.17}                    
+{'loss': 0.4405, 'learning_rate': 0.0034104046242774567, 'epoch': 1.21}                    
+{'loss': 0.5002, 'learning_rate': 0.003338150289017341, 'epoch': 1.24}                     
+{'loss': 0.4758, 'learning_rate': 0.003265895953757225, 'epoch': 1.28}                     
+{'loss': 0.4404, 'learning_rate': 0.00319364161849711, 'epoch': 1.32}                      
+{'loss': 0.4867, 'learning_rate': 0.0031213872832369944, 'epoch': 1.36}                    
+{'loss': 0.4902, 'learning_rate': 0.003049132947976879, 'epoch': 1.39}                     
+{'loss': 0.4733, 'learning_rate': 0.002976878612716763, 'epoch': 1.43}                     
+{'loss': 0.4789, 'learning_rate': 0.0029046242774566472, 'epoch': 1.47}                    
+{'loss': 0.4611, 'learning_rate': 0.002832369942196532, 'epoch': 1.51}                     
+{'loss': 0.4604, 'learning_rate': 0.0027601156069364165, 'epoch': 1.54}                    
+{'loss': 0.4711, 'learning_rate': 0.0026878612716763005, 'epoch': 1.58}                    
+{'loss': 0.4339, 'learning_rate': 0.002615606936416185, 'epoch': 1.62}                     
+{'loss': 0.4912, 'learning_rate': 0.0025433526011560694, 'epoch': 1.66}                    
+{'loss': 0.4486, 'learning_rate': 0.002471098265895954, 'epoch': 1.69}                     
+{'loss': 0.5136, 'learning_rate': 0.0023988439306358383, 'epoch': 1.73}                    
+{'loss': 0.4583, 'learning_rate': 0.0023265895953757227, 'epoch': 1.77}                    
+{'loss': 0.4426, 'learning_rate': 0.002254335260115607, 'epoch': 1.81}                     
+{'loss': 0.4695, 'learning_rate': 0.002182080924855491, 'epoch': 1.85}                     
+{'loss': 0.4776, 'learning_rate': 0.002109826589595376, 'epoch': 1.88}                     
+{'loss': 0.4723, 'learning_rate': 0.00203757225433526, 'epoch': 1.92}                      
+{'loss': 0.434, 'learning_rate': 0.001965317919075145, 'epoch': 1.96}                      
+{'loss': 0.4821, 'learning_rate': 0.001893063583815029, 'epoch': 2.0}                      
+ 67%|██████████████████████████████████▊                 | 265/396 [37:22<17:52,  8.19s/it]{'mr': 137.92355117139334, 'mrr': 0.48023853533331146, 'hits@1': 0.3958076448828607, 'hits@3': 0.5363748458692972, 'hits@10': 0.623921085080148}
+09:59:37   Summary name eval/hits@1 is illegal; using eval/hits_1 instead.
+09:59:37   Summary name eval/hits@3 is illegal; using eval/hits_3 instead.
+09:59:37   Summary name eval/hits@10 is illegal; using eval/hits_10 instead.
+{'eval_loss': 1.0458862781524658, 'eval_mr': 137.92355117139334, 'eval_mrr': 0.48023853533331146, 'eval_hits@1': 0.3958076448828607, 'eval_hits@3': 0.5363748458692972, 'eval_hits@10': 0.623921085080148, 'eval_runtime': 51.5285, 'eval_samples_per_second': 7.976, 'eval_steps_per_second': 0.505, 'epoch': 2.0}
+{'loss': 0.4671, 'learning_rate': 0.0018208092485549133, 'epoch': 2.03}                    
+{'loss': 0.4399, 'learning_rate': 0.001748554913294798, 'epoch': 2.07}                     
+{'loss': 0.4031, 'learning_rate': 0.0016763005780346821, 'epoch': 2.11}                    
+{'loss': 0.4652, 'learning_rate': 0.0016040462427745663, 'epoch': 2.15}                    
+{'loss': 0.4136, 'learning_rate': 0.001531791907514451, 'epoch': 2.18}                     
+{'loss': 0.4204, 'learning_rate': 0.0014595375722543352, 'epoch': 2.22}                    
+{'loss': 0.4643, 'learning_rate': 0.0013872832369942196, 'epoch': 2.26}                    
+{'loss': 0.3995, 'learning_rate': 0.001315028901734104, 'epoch': 2.3}                      
+{'loss': 0.3979, 'learning_rate': 0.0012427745664739885, 'epoch': 2.34}                    
+{'loss': 0.4442, 'learning_rate': 0.001170520231213873, 'epoch': 2.37}                     
+{'loss': 0.4085, 'learning_rate': 0.0010982658959537573, 'epoch': 2.41}                    
+{'loss': 0.4526, 'learning_rate': 0.0010260115606936418, 'epoch': 2.45}                    
+{'loss': 0.3966, 'learning_rate': 0.000953757225433526, 'epoch': 2.49}                     
+{'loss': 0.3999, 'learning_rate': 0.0008815028901734104, 'epoch': 2.52}                    
+{'loss': 0.4229, 'learning_rate': 0.0008092485549132948, 'epoch': 2.56}                    
+{'loss': 0.4537, 'learning_rate': 0.0007369942196531793, 'epoch': 2.6}                     
+{'loss': 0.4252, 'learning_rate': 0.0006647398843930636, 'epoch': 2.64}                    
+{'loss': 0.4277, 'learning_rate': 0.000592485549132948, 'epoch': 2.67}                     
+{'loss': 0.4409, 'learning_rate': 0.0005202312138728324, 'epoch': 2.71}                    
+{'loss': 0.4619, 'learning_rate': 0.00044797687861271676, 'epoch': 2.75}                   
+{'loss': 0.4075, 'learning_rate': 0.0003757225433526012, 'epoch': 2.79}                    
+{'loss': 0.4236, 'learning_rate': 0.00030346820809248556, 'epoch': 2.82}                   
+{'loss': 0.4017, 'learning_rate': 0.00023121387283236994, 'epoch': 2.86}                   
+{'loss': 0.4321, 'learning_rate': 0.00015895953757225434, 'epoch': 2.9}                    
+{'loss': 0.4639, 'learning_rate': 8.670520231213873e-05, 'epoch': 2.94}                    
+{'loss': 0.4119, 'learning_rate': 1.4450867052023121e-05, 'epoch': 2.98}                   
+100%|████████████████████████████████████████████████████| 396/396 [56:18<00:00,  8.33s/it]{'mr': 169.3415536374846, 'mrr': 0.46953821820071184, 'hits@1': 0.3871763255240444, 'hits@3': 0.5265104808877928, 'hits@10': 0.6004932182490752}
+10:18:30   Summary name eval/hits@1 is illegal; using eval/hits_1 instead.
+10:18:30   Summary name eval/hits@3 is illegal; using eval/hits_3 instead.
+10:18:30   Summary name eval/hits@10 is illegal; using eval/hits_10 instead.
+{'eval_loss': 0.777836799621582, 'eval_mr': 169.3415536374846, 'eval_mrr': 0.46953821820071184, 'eval_hits@1': 0.3871763255240444, 'eval_hits@3': 0.5265104808877928, 'eval_hits@10': 0.6004932182490752, 'eval_runtime': 51.3481, 'eval_samples_per_second': 8.004, 'eval_steps_per_second': 0.506, 'epoch': 2.98}
+{'train_runtime': 3429.8852, 'train_samples_per_second': 3.713, 'train_steps_per_second': 0.115, 'train_loss': 0.49219633804427254, 'epoch': 2.98}                                     
+100%|████████████████████████████████████████████████████| 396/396 [57:09<00:00,  8.66s/it]
+Saved checkpoint to outputs/fb15k237_ind_v1/mkgl_checkpoint.pt
+
+
+{'loss': 0.5666, 'learning_rate': 0.00441588785046729, 'epoch': 0.56}                       
+{'loss': 0.5751, 'learning_rate': 0.004299065420560748, 'epoch': 0.6}                       
+{'loss': 0.5867, 'learning_rate': 0.004182242990654206, 'epoch': 0.64}                      
+{'loss': 0.54, 'learning_rate': 0.004065420560747664, 'epoch': 0.68}                        
+{'loss': 0.5561, 'learning_rate': 0.003948598130841122, 'epoch': 0.72}                      
+{'loss': 0.5805, 'learning_rate': 0.0038317757009345794, 'epoch': 0.75}                     
+{'loss': 0.5108, 'learning_rate': 0.0037149532710280377, 'epoch': 0.79}                     
+{'loss': 0.5743, 'learning_rate': 0.003598130841121495, 'epoch': 0.83}                      
+{'loss': 0.5298, 'learning_rate': 0.0034813084112149534, 'epoch': 0.87}                     
+{'loss': 0.4996, 'learning_rate': 0.0033644859813084112, 'epoch': 0.9}                      
+{'loss': 0.5667, 'learning_rate': 0.0032476635514018695, 'epoch': 0.94}                     
+{'loss': 0.5362, 'learning_rate': 0.003130841121495327, 'epoch': 0.98}                      
+ 50%|██████████████████████████▌                          | 132/264 [19:29<19:08,  8.70s/it]{'mr': 143.72626387176325, 'mrr': 0.4727013528728823, 'hits@1': 0.3884093711467324, 'hits@3': 0.5277435265104808, 'hits@10': 0.623921085080148}
+17:43:13   Summary name eval/hits@1 is illegal; using eval/hits_1 instead.
+17:43:13   Summary name eval/hits@3 is illegal; using eval/hits_3 instead.
+17:43:13   Summary name eval/hits@10 is illegal; using eval/hits_10 instead.
+{'eval_loss': 0.591580867767334, 'eval_mr': 143.72626387176325, 'eval_mrr': 0.4727013528728823, 'eval_hits@1': 0.3884093711467324, 'eval_hits@3': 0.5277435265104808, 'eval_hits@10': 0.623921085080148, 'eval_runtime': 55.8411, 'eval_samples_per_second': 7.36, 'eval_steps_per_second': 0.466, 'epoch': 0.99}
+{'loss': 0.4661, 'learning_rate': 0.003014018691588785, 'epoch': 1.02}                      
+{'loss': 0.5111, 'learning_rate': 0.0028971962616822426, 'epoch': 1.05}                     
+{'loss': 0.4702, 'learning_rate': 0.002780373831775701, 'epoch': 1.09}                      
+{'loss': 0.5193, 'learning_rate': 0.0026635514018691587, 'epoch': 1.13}                     
+{'loss': 0.5115, 'learning_rate': 0.002546728971962617, 'epoch': 1.17}                      
+{'loss': 0.4558, 'learning_rate': 0.002429906542056075, 'epoch': 1.21}                      
+{'loss': 0.5058, 'learning_rate': 0.0023130841121495327, 'epoch': 1.24}                     
+{'loss': 0.4906, 'learning_rate': 0.0021962616822429905, 'epoch': 1.28}                     
+{'loss': 0.4646, 'learning_rate': 0.0020794392523364484, 'epoch': 1.32}                     
+{'loss': 0.619, 'learning_rate': 0.0019626168224299067, 'epoch': 1.36}                      
+{'loss': 0.5289, 'learning_rate': 0.0018457943925233645, 'epoch': 1.39}                     
+{'loss': 0.509, 'learning_rate': 0.0017289719626168223, 'epoch': 1.43}                      
+{'loss': 0.5015, 'learning_rate': 0.0016121495327102804, 'epoch': 1.47}                     
+{'loss': 0.4966, 'learning_rate': 0.0014953271028037382, 'epoch': 1.51}                     
+{'loss': 0.4881, 'learning_rate': 0.001378504672897196, 'epoch': 1.54}                     
+{'loss': 0.479, 'learning_rate': 0.0012616822429906542, 'epoch': 1.58}                     
+{'loss': 0.4431, 'learning_rate': 0.0011448598130841122, 'epoch': 1.62}                    
+{'loss': 0.4964, 'learning_rate': 0.00102803738317757, 'epoch': 1.66}                      
+{'loss': 0.4798, 'learning_rate': 0.000911214953271028, 'epoch': 1.69}                     
+{'loss': 0.5332, 'learning_rate': 0.000794392523364486, 'epoch': 1.73}                     
+{'loss': 0.4787, 'learning_rate': 0.0006775700934579439, 'epoch': 1.77}                    
+{'loss': 0.4599, 'learning_rate': 0.0005607476635514019, 'epoch': 1.81}                    
+{'loss': 0.4831, 'learning_rate': 0.0004439252336448598, 'epoch': 1.85}                    
+{'loss': 0.4886, 'learning_rate': 0.0003271028037383177, 'epoch': 1.88}                    
+{'loss': 0.4745, 'learning_rate': 0.0002102803738317757, 'epoch': 1.92}                    
+{'loss': 0.4609, 'learning_rate': 9.345794392523364e-05, 'epoch': 1.96}                    
+100%|████████████████████████████████████████████████████| 264/264 [39:48<00:00,  8.75s/it]{'mr': 161.06658446362516, 'mrr': 0.4733052731597376, 'hits@1': 0.38594327990135635, 'hits@3': 0.5339087546239211, 'hits@10': 0.6078914919852034}
+18:03:26   Summary name eval/hits@1 is illegal; using eval/hits_1 instead.
+18:03:26   Summary name eval/hits@3 is illegal; using eval/hits_3 instead.
+18:03:26   Summary name eval/hits@10 is illegal; using eval/hits_10 instead.
+{'eval_loss': 0.7554870843887329, 'eval_mr': 161.06658446362516, 'eval_mrr': 0.4733052731597376, 'eval_hits@1': 0.38594327990135635, 'eval_hits@3': 0.5339087546239211, 'eval_hits@10': 0.6078914919852034, 'eval_runtime': 55.6037, 'eval_samples_per_second': 7.392, 'eval_steps_per_second': 0.468, 'epoch': 1.99}
+{'train_runtime': 2443.9096, 'train_samples_per_second': 3.474, 'train_steps_per_second': 0.108, 'train_loss': 0.5426120031060595, 'epoch': 1.99}                                      
+100%|████████████████████████████████████████████████████| 264/264 [40:43<00:00,  9.26s/it]
+Saved checkpoint to outputs/fb15k237_ind_v1/mkgl_checkpoint.pt
+
+
+Thought for 1m 43s
+  The user wants me to implement two contributions:
+  1. Dual-Branch Gated Scorer (C1) - in gnn/model.py
+  2. Qualifier-Enriched Message Passing (C3) - in gnn/layer.py
+  
+  Let me carefully plan the implementation. I need to read the existing code thoroughly to make sure my changes integrate correctly.
+  
+  Let me re-read the key files:
+  - gnn/layer.py - for the PNALayer that I need to extend
+  - gnn/model.py - for the ConditionedPNA that I need to modify
+  - retriever.py - to understand how ScoreRetriever calls ConditionedPNA
+  - config/fb15k237_ind.yaml - to understand the config structure
+  
+  Now I'm looking at the current scoring method in ConditionedPNA. It concatenates hidden states with relation embeddings, applies a linear transformation to
+  get a heuristic weight, multiplies that with the hidden state, and passes it through an MLP. For C1, I need to replace this with a dual-branch approach that
+  processes the hidden and relation embeddings separately before gating them together.
+  
+  The tricky part is that `score()` gets called from multiple places in the code - during initialization, aggregation, and node scoring - so I need to ensure
+  backward compatibility while introducing the new dual-branch scorer. Looking at the actual usage patterns, the method takes hidden states and relation
+  embeddings as inputs and returns scalar scores, which means I can swap out the implementation without changing the interface.
+  
+  But I'm realizing the cross-attention approach might not be quite right. The paper's cross-attention branch actually operates over qualifier pairs rather
+  than between hidden and relation embeddings directly, and the path-composition branch handles something different. Let me re-examine what the paper actually
+  proposes.
+  
+  Without qualifiers in my setup, the first branch simplifies to a residual connection with layer normalization combining the hidden state and relation
+  embedding. The second branch applies a feedforward network to the concatenated representations, also with a residual connection. I'll use a learned scalar gate
+  to blend these two branches together.
+  
+  Building the dual-branch scorer module... Both inputs have the same dimension of 32, so the feature dimension becomes 64 when concatenated. The linear layer
+  maps this down to 32, and the MLP expands to 64 before outputting a single score. Now I'm looking at how the current scoring mechanism works.
+  
+  For the dual branch scorer, I need to maintain the same interface where hidden state and relation embeddings both at dimension 32 produce scalar scores. I'm
+  designing a two-branch architecture where one branch handles direct residual fusion and the other processes path composition through a feedforward network.
+  
+  Building the dual branch scorer... Completing the forward pass with gated fusion between the two branches, then passing through the scoring MLP. But I'm
+  realizing the current implementation uses a different approach—it computes a relation-dependent weight via a linear layer, applies it elementwise to the hidden
+  state, and then scores that result, which is more aligned with DistMult-style scoring.
+  
+  For backward compatibility, I should add a configuration flag to switch between the legacy scorer and this new dual-branch approach, then conditionally
+  instantiate the appropriate scorer in the model's initialization based on that flag.
+  
+  Now for the qualifier enrichment in FB15k-237, since there aren't explicit qualifier pairs in the dataset, I can work with the compound relation paths that
+  are already present — many relations are multi-hop sequences separated by dots that can be decomposed into qualifier-like sub-relations. I could also extract
+  structural features from the graph itself, like node degree or centrality metrics, to serve as synthetic qualifiers.
+  
+  Looking at the paper more closely, the qualifier enrichment actually happens at the relation embedding level before message passing. So I'll create a
+  `QualifierAwareLayer` that optionally enriches relation embeddings using multi-head attention when qualifiers are available, but gracefully falls back to the
+  base behavior when they're not. This way the module works as a no-op on FB15k-237 while remaining ready to leverage qualifiers if the dataset provides them.
+  
+  For FB15k-237 specifically, I could derive implicit qualifiers from the graph structure itself—using neighbor context around each edge as a proxy for the
+  kind of contextual information that explicit qualifiers would provide.
+  
+  Looking at how the paper formulates this: the qualifier vector combines DistMult-style compositions of qualifier key-value pairs, then gates it with the
+  relation embedding through a learned blend. I need to implement that same gating mechanism where the qualifier source comes from the graph neighborhood rather
+  than explicit metadata.
+  
+  For the MKGL setting, I can leverage the text embeddings from entity neighbors as qualifier context, or decompose relation paths, or even use synthetic
+  degree-based features to bootstrap the approach. The key is that the user wants working code with concrete improvements, so I should focus on what qualifier
+  information is naturally available in the pipeline—specifically the hidden states the LLM produces for different parts of the prompt, where the relation
+  context and head embeddings already encode useful structural information.
+  
+  My plan is to add a `QualifierAwareLayer` that extends the existing `PNALayer` and enriches relation embeddings with qualifier context before message
+  passing. For FB15k-237, I'll use entity neighborhood embeddings as implicit qualifiers—gathering the embeddings of neighboring nodes as contextual signals for
+  each edge.
+  
+  Actually, I'm overcomplicating this. The real contribution is the gated merging architecture itself, not necessarily where the qualifiers come from. A
+  simpler approach would be to use the relation embedding's own text token representations as qualifier keys, with learnable projections as values, giving the
+  relation a richer attention-refined representation before it's used in message passing.
+  
+  But let me look at what data's actually available in the MKGL pipeline. Looking at the forward function, I see we have the LLM outputs for entities and
+  relations, but the GNN is actually using its own learned relation embeddings rather than the LLM's relation representations. And there are text embeddings for
+  all entities available too.
+  
+  The key insight is that `rel_hidden_states` is already being passed in but not used—it's commented out. That's actually a form of qualifier information I can
+  leverage. My approach will be to create a qualifier-aware layer that enriches the relation embedding by gating in the LLM's contextual understanding of the
+  relation, along with neighbor entity embeddings as additional qualifier signals. The key insight is that `rel_hidden_states` from the LLM is already being
+  passed to `ConditionedPNA` but it's currently unused—there's even a commented-out line showing where it should be integrated. I need to uncomment and properly
+  wire this through the graph layers so the GNN can leverage the LLM's rich relation representations instead of relying solely on its own learned embeddings. and
+  I can leverage that contextual understanding from the LLM to enrich the qualifier information instead of relying solely on the GNN's learned embedding table.
+  
+  I'll implement this by adding a qualifier-aware layer that blends the GNN's relation embedding with the LLM's contextual representation using either a
+  weighted combination or multi-head attention, then extend the PNALayer class to support this enrichment mechanism. I need to wire the qualifier context through
+  each layer and modify the aggregation function to pass it along, while also tracking gate values for interpretability. Let me review the PNALayer
+  implementation to understand how to integrate this properly.
+  I'll implement both contributions. Let me first re-read the GNN layer file closely to plan the exact integration points.                                   
+● Read(D:/MKGL/MKGL/gnn/layer.py)
