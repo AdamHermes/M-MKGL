@@ -25,8 +25,8 @@ mkgl:
   load_in_8bit: no
 
 loraconfig:
-  r: &r 32
-  lora_alpha: 8
+  r: &r 64
+  lora_alpha: 16
   lora_dropout: 0.05
   target_modules: 
   # - embed_tokens
